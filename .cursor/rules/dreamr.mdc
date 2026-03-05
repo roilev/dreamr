@@ -1,0 +1,61 @@
+---
+description: Dreamr project coding conventions for all agents
+globs: src/**/*.{ts,tsx}
+---
+
+# Dreamr Coding Conventions
+
+## Imports
+- Use `@/` path alias for all internal imports (maps to `src/`)
+- Group imports: 1) external packages, 2) `@/lib/`, 3) `@/components/`, 4) `@/hooks/`, 5) relative
+- Separate groups with blank lines
+
+## File Ownership (Multi-Agent)
+- **Agent A (Backend)**: `src/app/api/**`, `src/lib/fal/**`, `src/lib/marble/**`, `src/lib/inngest/functions/**`, `src/lib/supabase/server.ts`, `src/lib/supabase/admin.ts`, `src/proxy.ts`, `supabase/**`
+- **Agent B (Frontend)**: `src/components/**`, `src/hooks/**`, `src/lib/stores/**`, `src/app/(pages)/**`, `src/app/layout.tsx`, `src/styles/**`, `src/lib/supabase/client.ts`
+- **Shared (Foundation only)**: `src/lib/types/**`, `src/lib/supabase/types.ts`, `src/lib/inngest/client.ts`, `src/lib/utils/**`, `src/test/fixtures/**`
+- Do NOT edit files outside your ownership unless coordinating a contract change
+
+## React Components
+- Always add `"use client"` for components using hooks, state, or browser APIs
+- Use named exports, not default exports, for components
+- Props interfaces should be defined in the same file, named `{ComponentName}Props`
+- Use `cn()` from `@/lib/utils/cn` for conditional class names
+
+## Supabase
+- Always check `.error` on Supabase responses before using `.data`
+- Use `createServerSupabase()` in API routes (respects RLS via cookies)
+- Use `createAdminSupabase()` in Inngest functions (bypasses RLS)
+- Use `createBrowserSupabase()` in client components
+- Never use the service role key on the client
+
+## Inngest
+- Each pipeline step should be a separate `step.run()` call
+- Never use long-running `while` loops inside `step.run()` — use `step.sleep()` between polling attempts
+- Always update `pipeline_jobs` table status for real-time UI updates
+- Use typed event schemas from `@/lib/inngest/client`
+
+## API Routes
+- Always verify auth with `await auth()` from `@clerk/nextjs/server`
+- Return proper HTTP status codes (401 unauthorized, 404 not found, 400 bad request)
+- Use `NextResponse.json()` for all responses
+- Verify resource ownership before mutations
+- Dynamic route params use `params: Promise<{ paramName: string }>` in Next.js 15+
+
+## Error Handling
+- API routes: catch errors, return JSON `{ error: string }` with appropriate status
+- Inngest functions: let errors bubble for automatic retries, log context
+- Client components: use React Error Boundaries around R3F Canvas
+- Always provide user-facing error messages (not raw stack traces)
+
+## Styling
+- Use Tailwind utility classes with CSS custom properties from globals.css
+- Use `.glow-border`, `.glow-button`, `.glow-animated` for themed interactive elements
+- Dark theme only — all colors reference CSS variables
+- Use Framer Motion for transitions and animations
+
+## Testing
+- Test files live next to source files as `*.test.ts` / `*.test.tsx`
+- Use mock fixtures from `@/test/fixtures` for consistent test data
+- Mock external APIs (fal.ai, Marble, Supabase) — never call real APIs in tests
+- Test Zustand stores by calling actions and asserting state

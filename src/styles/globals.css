@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+:root {
+  /* ── Backgrounds: warm neutral blacks ── */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-surface: #171717;
+  --bg-elevated: #1e1e1e;
+
+  /* ── Text: clean whites to neutral grays ── */
+  --text-primary: #f5f5f5;
+  --text-secondary: #999999;
+  --text-muted: #555555;
+
+  /* ── Accent: extremely restrained — near-white for active states ── */
+  --accent-primary: #e0e0e0;
+  --accent-secondary: #a0a0a0;
+  --accent-glow: rgba(255, 255, 255, 0.06);
+  --accent-cyan-glow: rgba(255, 255, 255, 0.04);
+
+  /* ── Borders: subtle but present ── */
+  --border-default: rgba(255, 255, 255, 0.07);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+
+  /* ── Status: muted tones ── */
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+
+  /* ── Radii ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Subtle border hover ── */
+.glow-border {
+  position: relative;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease;
+}
+
+.glow-border:hover {
+  border-color: var(--border-hover);
+}
+
+/* ── Primary action button ── */
+.glow-button {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 10px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.glow-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.glow-button:active {
+  transform: translateY(0);
+}
+
+.glow-button:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Animated border (loading states) ── */
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glow-rotate {
+  0% { --glow-angle: 0deg; }
+  100% { --glow-angle: 360deg; }
+}
+
+.glow-animated {
+  position: relative;
+  border-radius: var(--radius-md);
+  padding: 1px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.03),
+    transparent,
+    transparent,
+    rgba(255, 255, 255, 0.15)
+  );
+  animation: glow-rotate 3s linear infinite;
+}
+
+.glow-animated > * {
+  background: var(--bg-surface);
+  border-radius: calc(var(--radius-md) - 1px);
+}
+
+/* ── Prompt bar ── */
+.prompt-bar {
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  padding: 12px 16px;
+  z-index: 100;
+}
+
+.prompt-bar:focus-within {
+  background: var(--bg-elevated);
+}
+
+/* ── Pipeline progress step dots ── */
+.step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.step-dot.pending {
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.step-dot.running {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+.step-dot.completed {
+  background: var(--success);
+  color: var(--bg-primary);
+}
+
+.step-dot.failed {
+  background: var(--error);
+  color: white;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ── Timeline scrubber ── */
+.timeline-track {
+  height: 3px;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+
+.timeline-progress {
+  height: 100%;
+  background: var(--text-secondary);
+  border-radius: 2px;
+}
+
+.timeline-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.timeline-thumb:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* ── Canvas overlay (hidden-until-hover) ── */
+.canvas-overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.canvas-wrapper:hover .canvas-overlay {
+  opacity: 1;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
