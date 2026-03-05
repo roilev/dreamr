@@ -12,6 +12,8 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Loader2, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
+import { useSceneWorld } from "@/hooks/use-world";
+import { ModeTransition } from "@/components/viewer/mode-transition";
 import type { SceneInputRow } from "@/lib/supabase/types";
 import type { ViewerInputImage } from "@/lib/types/stores";
 
@@ -114,9 +116,23 @@ function hydrateViewerFromAssets(
     assets.find((a) => a.type === "video");
   const depth = assets.find((a) => a.type === "depth_map");
 
+  const splat100k = assets.find((a) => a.type === "splat_100k");
+  const splat500k = assets.find((a) => a.type === "splat_500k");
+  const splatFull = assets.find((a) => a.type === "splat_full");
+  const collider = assets.find((a) => a.type === "collider_mesh");
+
   if (equirect?.public_url) vs.setEquirectUrl(equirect.public_url);
   if (video?.public_url) vs.setVideoUrl(video.public_url);
   if (depth?.public_url) vs.setDepthUrl(depth.public_url);
+
+  if (splat100k?.public_url || splat500k?.public_url || splatFull?.public_url) {
+    vs.setSplatUrls({
+      url100k: splat100k?.public_url ?? null,
+      url500k: splat500k?.public_url ?? null,
+      urlFull: splatFull?.public_url ?? null,
+    });
+  }
+  if (collider?.public_url) vs.setColliderUrl(collider.public_url);
 
   const freshImages = inputsToViewerImages(inputs);
   const existing = vs.inputImages;
@@ -164,6 +180,7 @@ export function SceneEditor({
   isGenerating: boolean;
 }) {
   const { data: scene, isLoading } = useScene(sceneId);
+  const { data: worldData } = useSceneWorld(sceneId);
   const { setScene } = useSceneStore();
   const { mode, videoUrl } = useViewerStore();
   const queryClient = useQueryClient();
@@ -195,6 +212,21 @@ export function SceneEditor({
       setScene(null);
     };
   }, [scene, setScene]);
+
+  useEffect(() => {
+    if (!worldData) return;
+    const vs = useViewerStore.getState();
+    vs.setSplatUrls({
+      url100k: worldData.splat100kUrl,
+      url500k: worldData.splat500kUrl,
+      urlFull: worldData.splatFullUrl,
+    });
+    vs.setColliderUrl(worldData.colliderUrl);
+    vs.setActiveWorld(worldData);
+    if (worldData.splatFullUrl || worldData.splat100kUrl) {
+      vs.setMode("splat");
+    }
+  }, [worldData]);
 
   const handleCaptureFrame = useCallback(
     (blob: Blob, timeSeconds: number) => {
@@ -307,7 +339,9 @@ export function SceneEditor({
       {/* Canvas — fills entire area */}
       <div className="absolute inset-0">
         <ErrorBoundary>
-          <ViewerCanvas mode={mode} />
+          <ModeTransition mode={mode}>
+            <ViewerCanvas mode={mode} />
+          </ModeTransition>
         </ErrorBoundary>
       </div>
 
