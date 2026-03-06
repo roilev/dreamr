@@ -2,31 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
+import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
 import { rateLimitByIP, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { randomUUID } from "crypto";
 
-async function ensureSceneOwnership(
-  supabase: ReturnType<typeof createAdminSupabase>,
-  sceneId: string,
-  userId: string,
-) {
-  const { data: scene } = await supabase
-    .from("scenes")
-    .select("id, space_id")
-    .eq("id", sceneId)
-    .single();
-
-  if (!scene) return false;
-
-  const spaceId = (scene as { space_id: string }).space_id;
-  const { data: space } = await supabase
-    .from("spaces")
-    .select("id")
-    .eq("id", spaceId)
-    .eq("user_id", userId)
-    .single();
-
-  return !!space;
+function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
 }
 
 export async function POST(
@@ -62,7 +45,7 @@ export async function POST(
     const existing = (scene as { share_token: string | null }).share_token;
     if (existing) {
       return NextResponse.json({
-        shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/share/${existing}`,
+        shareUrl: `${getAppUrl()}/share/${existing}`,
         shareToken: existing,
       });
     }
@@ -81,7 +64,7 @@ export async function POST(
       );
 
     return NextResponse.json({
-      shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/share/${shareToken}`,
+      shareUrl: `${getAppUrl()}/share/${shareToken}`,
       shareToken,
     });
   } catch (err) {

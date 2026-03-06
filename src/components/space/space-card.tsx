@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, User } from "lucide-react";
 import type { SpaceRow } from "@/lib/supabase/types";
 
-export function SpaceCard({ space }: { space: SpaceRow }) {
+interface SpaceCardProps {
+  space: SpaceRow;
+  owner?: { email: string | null; display_name: string | null } | null;
+}
+
+export function SpaceCard({ space, owner }: SpaceCardProps) {
+  const ownerLabel = owner?.display_name || owner?.email || null;
+
   return (
     <Link href={`/spaces/${space.id}`}>
       <motion.div
@@ -22,9 +29,17 @@ export function SpaceCard({ space }: { space: SpaceRow }) {
             {space.description && (
               <p className="mt-1 text-sm text-[var(--text-secondary)] line-clamp-2">{space.description}</p>
             )}
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              {new Date(space.created_at).toLocaleDateString()}
-            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                {new Date(space.created_at).toLocaleDateString()}
+              </p>
+              {ownerLabel && (
+                <span className="flex items-center gap-1 rounded-full bg-[var(--accent-primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
+                  <User size={10} />
+                  {ownerLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>

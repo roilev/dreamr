@@ -23,17 +23,25 @@ const VideoSphere = dynamic(
   { ssr: false },
 );
 
+const SplatWorld = dynamic(
+  () =>
+    import("@/components/viewer/splat-world").then((m) => ({
+      default: m.SplatWorld,
+    })),
+  { ssr: false },
+);
+
 type SharedScene = SceneRow & { assets: AssetRow[] };
 
 function bestAsset(assets: AssetRow[]): {
-  mode: "equirect" | "video";
+  mode: "equirect" | "video" | "splat";
   url: string;
 } | null {
-  const splat = assets.find(
-    (a) =>
-      a.type === "splat_full" || a.type === "splat_500k" || a.type === "splat_100k",
-  );
-  if (splat?.public_url) return { mode: "equirect", url: splat.public_url };
+  const splatFull = assets.find((a) => a.type === "splat_full");
+  const splat500k = assets.find((a) => a.type === "splat_500k");
+  const splat100k = assets.find((a) => a.type === "splat_100k");
+  const splat = splatFull ?? splat500k ?? splat100k;
+  if (splat?.public_url) return { mode: "splat", url: splat.public_url };
 
   const video = assets.find(
     (a) => a.type === "video" || a.type === "upscaled_video",
@@ -65,6 +73,24 @@ export function SharedSceneViewer({ scene }: { scene: SharedScene }) {
     return (
       <div className="flex h-full w-full items-center justify-center text-sm text-[var(--text-muted)]">
         <p>No viewable assets for this scene.</p>
+      </div>
+    );
+  }
+
+  if (asset.mode === "splat") {
+    return (
+      <div className="relative h-full w-full">
+        <SplatWorld />
+        <div className="absolute bottom-4 right-4 z-10">
+          <a
+            href={process.env.NEXT_PUBLIC_APP_URL || "/"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs text-white/50 hover:text-white/80 transition-colors border border-white/10"
+          >
+            Made with Dreamr
+          </a>
+        </div>
       </div>
     );
   }

@@ -7,7 +7,7 @@ import { useViewerStore } from "@/lib/stores/viewer-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { ControlCenter } from "./control-center";
 import { FrameSelector, type CapturedFrame } from "./frame-selector";
-import { ViewerCanvas } from "@/components/viewer/viewer-canvas";
+import { LazyViewerCanvas as ViewerCanvas } from "@/components/viewer/lazy-viewer";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Loader2, ImagePlus } from "lucide-react";
 import { toast } from "sonner";

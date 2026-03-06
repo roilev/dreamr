@@ -1,6 +1,6 @@
 import { inngest } from "../client";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { generate360Image, edit360Image } from "@/lib/fal/nano-banana";
+import { generate360Image, edit360Image, EQUIRECT_TEXT_PROMPT, EQUIRECT_SINGLE_IMAGE_PROMPT, EQUIRECT_COMPOSITE_PROMPT } from "@/lib/fal/nano-banana";
 import { SUPABASE_BUCKETS, FAL_MODELS } from "@/lib/utils/constants";
 import { downloadAndUploadBuffer, createJob, completeJob, failJob, createAsset, updateScene, logGenerationStart, logGenerationComplete } from "./helpers";
 import { compositeEquirect, resizeToEquirect } from "@/lib/utils/equirect-composite";
@@ -45,10 +45,24 @@ export const stepImage360 = inngest.createFunction(
 
       const hasImages = referenceUrls.length > 0;
       const modelId = hasImages ? FAL_MODELS.NANO_BANANA_2_EDIT : FAL_MODELS.NANO_BANANA_2;
-      const job = await createJob(sceneId, "image_360", "fal", modelId);
-      const logId = await logGenerationStart(sceneId, "image_360", "fal", modelId, userId);
-
       const prompt = scene?.prompt || "";
+
+      let fullPrompt: string;
+      if (hasImages && inputs?.length) {
+        const prefix = inputs.length > 1 ? EQUIRECT_COMPOSITE_PROMPT : EQUIRECT_SINGLE_IMAGE_PROMPT;
+        fullPrompt = prompt ? `${prefix}${prompt}` : prefix.trim();
+      } else {
+        const textPrompt = prompt || "A beautiful panoramic landscape";
+        fullPrompt = `${EQUIRECT_TEXT_PROMPT}${textPrompt}`;
+      }
+
+      const job = await createJob(sceneId, "image_360", "fal", modelId, {
+        prompt: fullPrompt,
+        user_prompt: prompt || null,
+        has_reference_images: hasImages,
+        reference_image_count: referenceUrls.length,
+      });
+      const logId = await logGenerationStart(sceneId, "image_360", "fal", modelId, userId);
 
       try {
         let result;

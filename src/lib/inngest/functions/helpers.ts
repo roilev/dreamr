@@ -29,6 +29,7 @@ export async function createJob(
   step: PipelineStep,
   provider: string,
   modelId: string,
+  inputMetadata?: Record<string, unknown>,
 ) {
   const supabase = createAdminSupabase();
   const { data, error } = await supabase
@@ -41,7 +42,7 @@ export async function createJob(
       model_id: modelId,
       started_at: new Date().toISOString(),
       provider_request_id: null,
-      input_metadata: null,
+      input_metadata: inputMetadata ?? null,
       output_metadata: null,
       error_message: null,
       completed_at: null,

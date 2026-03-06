@@ -19,8 +19,6 @@ export const stepVideo = inngest.createFunction(
       if (!equirect?.public_url) throw new Error("No equirect image found — generate a 360° image first");
 
       await updateScene(sceneId, { status: "generating", current_step: "video" });
-      const job = await createJob(sceneId, "video", "fal", veoModel);
-      const logId = await logGenerationStart(sceneId, "video", "fal", veoModel, userId);
 
       const supabase = createAdminSupabase();
       const { data: scene } = await supabase
@@ -30,6 +28,13 @@ export const stepVideo = inngest.createFunction(
         .single() as { data: Pick<SceneRow, "prompt"> | null; error: unknown };
 
       const animationPrompt = scene?.prompt || "Gentle camera movement through the scene";
+
+      const job = await createJob(sceneId, "video", "fal", veoModel, {
+        prompt: animationPrompt,
+        user_prompt: scene?.prompt || null,
+        source_image: equirect.public_url,
+      });
+      const logId = await logGenerationStart(sceneId, "video", "fal", veoModel, userId);
 
       try {
         const { requestId } = await generateVideo(equirect.public_url, animationPrompt, { model: veoModel });

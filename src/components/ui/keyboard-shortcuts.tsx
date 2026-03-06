@@ -23,10 +23,8 @@ export function registerShortcut(id: string, shortcut: Shortcut) {
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable)
         return;
 
       const key = [
@@ -48,8 +46,8 @@ export function useKeyboardShortcuts() {
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
   }, []);
 }
 
@@ -58,7 +56,7 @@ export function KeyboardShortcutsHelp() {
 
   useEffect(() => {
     return registerShortcut("help", {
-      keys: ["?"],
+      keys: ["I"],
       label: "Show keyboard shortcuts",
       category: "General",
       action: () => setOpen((prev) => !prev),
@@ -149,7 +147,7 @@ export function KeyboardShortcutsHelp() {
               <span className="text-xs text-[var(--text-muted)]">
                 Press{" "}
                 <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 text-[10px]">
-                  ?
+                  I
                 </kbd>{" "}
                 to toggle
               </span>
@@ -166,29 +164,17 @@ export function useDreamrShortcuts() {
     const cleanups: (() => void)[] = [];
 
     cleanups.push(
-      registerShortcut("new-scene", {
-        keys: ["Mod", "N"],
-        label: "New scene",
-        category: "Navigation",
-        action: () => {},
-      }),
-    );
-
-    cleanups.push(
-      registerShortcut("search", {
-        keys: ["Mod", "K"],
-        label: "Search",
-        category: "Navigation",
-        action: () => {},
-      }),
-    );
-
-    cleanups.push(
-      registerShortcut("toggle-sidebar", {
-        keys: ["Mod", "B"],
-        label: "Toggle sidebar",
-        category: "Navigation",
-        action: () => {},
+      registerShortcut("fullscreen", {
+        keys: ["Mod", "Shift", "F"],
+        label: "Toggle fullscreen",
+        category: "Viewer",
+        action: () => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          } else {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        },
       }),
     );
 

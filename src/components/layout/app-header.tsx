@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
 import {
   ChevronDown,
   ChevronRight,
@@ -16,12 +15,18 @@ import {
   ExternalLink,
   Copy,
   Pencil,
+  Share2,
+  FolderOpen,
+  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import { useViewerStore } from "@/lib/stores/viewer-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { CustomUserButton } from "@/components/layout/custom-user-button";
 import type { AssetRow, PipelineJobRow, SceneInputRow } from "@/lib/supabase/types";
+import { ShareDialog } from "@/components/scene/share-dialog";
 import type { GetSceneResponse } from "@/lib/types/api";
 import type { ViewerMode } from "@/lib/types/stores";
 
@@ -33,6 +38,8 @@ interface AppHeaderProps {
   overlay?: boolean;
   scene?: GetSceneResponse;
   activeSteps?: string[];
+  sceneId?: string;
+  onOpenPanel?: (panel: "assets" | "history") => void;
 }
 
 const MODE_LABELS: Partial<Record<ViewerMode, string>> = {
@@ -221,18 +228,53 @@ function DebugTab({
       </DebugSection>
 
       <DebugSection title="Prompt" defaultOpen={!!scene?.prompt}>
-        {scene?.prompt ? (
-          <div className="space-y-1.5">
-            <p className="text-[var(--text-secondary)] bg-black/20 rounded-lg px-2.5 py-2 break-words leading-relaxed">
-              {scene.prompt}
-            </p>
-            <button onClick={() => clip(scene.prompt!)} className="flex items-center gap-1 text-[var(--accent-primary)] hover:underline">
-              <Copy size={9} /> Copy
-            </button>
-          </div>
-        ) : (
-          <p className="text-[var(--text-muted)] italic">No prompt</p>
-        )}
+        {(() => {
+          const latestJob = [...jobs].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          )[0];
+          const fullPrompt =
+            (latestJob?.input_metadata as Record<string, unknown> | null)?.prompt as string | undefined;
+
+          return scene?.prompt || fullPrompt ? (
+            <div className="space-y-2">
+              {fullPrompt ? (
+                <div className="space-y-1.5">
+                  <p className="text-[8px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                    Full prompt sent to model
+                  </p>
+                  <p className="text-[var(--text-secondary)] bg-black/20 rounded-lg px-2.5 py-2 break-words leading-relaxed">
+                    {fullPrompt}
+                  </p>
+                  <button onClick={() => clip(fullPrompt)} className="flex items-center gap-1 text-[var(--accent-primary)] hover:underline">
+                    <Copy size={9} /> Copy
+                  </button>
+                </div>
+              ) : scene?.prompt ? (
+                <div className="space-y-1.5">
+                  <p className="text-[var(--text-secondary)] bg-black/20 rounded-lg px-2.5 py-2 break-words leading-relaxed">
+                    {scene.prompt}
+                  </p>
+                  <button onClick={() => clip(scene.prompt!)} className="flex items-center gap-1 text-[var(--accent-primary)] hover:underline">
+                    <Copy size={9} /> Copy
+                  </button>
+                </div>
+              ) : null}
+
+              {fullPrompt && scene?.prompt && (
+                <details>
+                  <summary className="cursor-pointer text-[9px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
+                    User prompt
+                  </summary>
+                  <p className="text-[var(--text-secondary)] bg-black/20 rounded-lg px-2.5 py-2 break-words leading-relaxed mt-1">
+                    {scene.prompt}
+                  </p>
+                </details>
+              )}
+            </div>
+          ) : (
+            <p className="text-[var(--text-muted)] italic">No prompt</p>
+          );
+        })()}
       </DebugSection>
 
       {activeSteps.length > 0 && (
@@ -410,9 +452,13 @@ export function AppHeader({
   overlay,
   scene,
   activeSteps = [],
+  sceneId,
+  onOpenPanel,
 }: AppHeaderProps) {
   const hasNav = spaceName && spaceId;
   const hasScene = sceneNameSlot || sceneName;
+  const [shareOpen, setShareOpen] = useState(false);
+  const { isAdmin } = useIsAdmin();
 
   if (overlay) {
     return (
@@ -458,14 +504,49 @@ export function AppHeader({
 
         {/* Right: actions */}
         <div className="flex items-center gap-2">
-          <DebugDropdown scene={scene} activeSteps={activeSteps} />
+          {sceneId && onOpenPanel && (
+            <>
+              <button
+                onClick={() => onOpenPanel("assets")}
+                className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
+              >
+                <FolderOpen size={11} />
+                Assets
+              </button>
+              <button
+                onClick={() => onOpenPanel("history")}
+                className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
+              >
+                <Clock size={11} />
+                History
+              </button>
+            </>
+          )}
+          {sceneId && (
+            <button
+              onClick={() => setShareOpen(true)}
+              className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
+            >
+              <Share2 size={11} />
+              Share
+            </button>
+          )}
+          {isAdmin && <DebugDropdown scene={scene} activeSteps={activeSteps} />}
           <div className="relative flex items-center">
             <span className="absolute -inset-3 rounded-full bg-black/60 blur-2xl pointer-events-none" />
             <span className="relative">
-              <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }} />
+              <CustomUserButton />
             </span>
           </div>
         </div>
+        {sceneId && (
+          <ShareDialog
+            sceneId={sceneId}
+            sceneName={scene?.name ?? sceneName ?? "Untitled Scene"}
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+          />
+        )}
       </header>
     );
   }
@@ -503,7 +584,7 @@ export function AppHeader({
       )}
 
       <div className="flex-1" />
-      <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }} />
+      <CustomUserButton />
     </header>
   );
 }

@@ -12,6 +12,7 @@ import { DepthView } from "./depth-view";
 import { InputCanvasView } from "./input-canvas-view";
 import { Loader2, ImagePlus, Minus, Plus } from "lucide-react";
 import { SplatWorld } from "./splat-world";
+import { PlatformControls } from "./controls";
 import * as THREE from "three";
 import type { ViewerMode, ViewerInputImage } from "@/lib/types/stores";
 
@@ -363,13 +364,7 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
         <Suspense fallback={null}>
           <CameraAligner />
           <ViewerContent />
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            rotateSpeed={-0.3}
-            touches={{ ONE: 1, TWO: 2 }}
-            target={[0, 0, 0]}
-          />
+          <PlatformControls mode={mode} />
         </Suspense>
       </Canvas>
     </div>

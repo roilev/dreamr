@@ -12,14 +12,21 @@ export async function DELETE(
     if (!clerkId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    await ensureUser(clerkId);
-    const { inputId } = await params;
+    const user = await ensureUser(clerkId);
+    const { sceneId, inputId } = await params;
     const supabase = createAdminSupabase();
+
+    const { data: scene } = await supabase.from("scenes").select("project_id").eq("id", sceneId).single();
+    if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const projectId = (scene as { project_id: string }).project_id;
+    const { data: space } = await supabase.from("projects").select("id").eq("id", projectId).eq("user_id", user.id).single();
+    if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { error } = await supabase
       .from("scene_inputs")
       .delete()
-      .eq("id", inputId);
+      .eq("id", inputId)
+      .eq("scene_id", sceneId);
 
     if (error)
       return NextResponse.json({ error: error.message }, { status: 500 });

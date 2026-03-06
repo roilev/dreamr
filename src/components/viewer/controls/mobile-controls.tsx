@@ -136,8 +136,8 @@ function GyroscopeToggle({
       className={cn(
         "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm transition-all",
         enabled
-          ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-          : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]",
+          ? "bg-[var(--accent-primary)] text-[var(--bg-primary)]"
+          : "bg-white/15 text-[var(--text-secondary)] hover:bg-white/25",
       )}
       aria-label={enabled ? "Disable gyroscope" : "Enable gyroscope"}
     >
