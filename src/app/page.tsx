@@ -43,8 +43,11 @@ export default function HomePage() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 flex flex-col items-center text-center px-6"
       >
-        <h1 className="text-5xl font-bold tracking-tight sm:text-7xl uppercase">
-          <span className="text-[var(--text-primary)]">Dreamr</span>
+        <h1
+          className="text-5xl italic font-semibold tracking-tight sm:text-7xl text-[var(--text-primary)]"
+          style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+        >
+          Dreamr
         </h1>
 
         <p className="mt-6 max-w-lg text-lg text-[var(--text-secondary)] leading-relaxed">

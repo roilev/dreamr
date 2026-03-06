@@ -12,7 +12,7 @@ export function CustomUserButton() {
   const { adminMode, toggleAdminMode } = useAppStore();
 
   return (
-    <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }}>
+    <UserButton appearance={{ elements: { avatarBox: "w-7 h-7", userButtonTrigger: "p-0 m-0", userButtonBox: "p-0 m-0" } }}>
       {isAdmin && (
         <UserButton.MenuItems>
           <UserButton.Action

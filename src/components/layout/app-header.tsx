@@ -532,9 +532,9 @@ export function AppHeader({
             </button>
           )}
           {isAdmin && <DebugDropdown scene={scene} activeSteps={activeSteps} />}
-          <div className="relative flex items-center">
+          <div className="relative flex items-center self-center">
             <span className="absolute -inset-3 rounded-full bg-black/60 blur-2xl pointer-events-none" />
-            <span className="relative">
+            <span className="relative flex items-center">
               <CustomUserButton />
             </span>
           </div>
@@ -555,7 +555,8 @@ export function AppHeader({
     <header className="sticky top-0 z-50 flex h-14 items-center gap-2 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-5">
       <Link
         href="/spaces"
-        className="shrink-0 text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+        className="shrink-0 text-lg italic font-semibold tracking-tight text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+        style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
       >
         Dreamr
       </Link>
