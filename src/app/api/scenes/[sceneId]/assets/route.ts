@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
-
-async function ensureSceneOwnership(supabase: ReturnType<typeof createAdminSupabase>, sceneId: string, userId: string) {
-  const { data: scene } = await supabase.from("scenes").select("project_id").eq("id", sceneId).single();
-  if (!scene) return false;
-  const spaceId = (scene as { project_id: string }).project_id;
-  const { data: space } = await supabase.from("projects").select("id").eq("id", spaceId).eq("user_id", userId).single();
-  return !!space;
-}
+import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ sceneId: string }> }) {
   try {

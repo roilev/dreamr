@@ -4,6 +4,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 
 import { Providers } from "@/components/providers";
+import { GlobalShortcuts } from "@/components/ui/global-shortcuts";
+import { PageTransition } from "@/components/ui/page-transition";
 import "@/styles/globals.css";
 
 const geistSans = Geist({
@@ -44,7 +46,10 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--bg-primary)] text-[var(--text-primary)]`}
         >
           <Providers>
-            {children}
+            <GlobalShortcuts />
+            <PageTransition>
+              {children}
+            </PageTransition>
           </Providers>
         </body>
       </html>

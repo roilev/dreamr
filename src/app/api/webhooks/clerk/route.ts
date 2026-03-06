@@ -8,24 +8,25 @@ export async function POST(req: NextRequest) {
     let body: Record<string, unknown>;
 
     const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
-    if (webhookSecret && !webhookSecret.startsWith("whsec_...")) {
-      const svixId = req.headers.get("svix-id");
-      const svixTimestamp = req.headers.get("svix-timestamp");
-      const svixSignature = req.headers.get("svix-signature");
-
-      if (!svixId || !svixTimestamp || !svixSignature) {
-        return NextResponse.json({ error: "Missing svix headers" }, { status: 400 });
-      }
-
-      const wh = new Webhook(webhookSecret);
-      body = wh.verify(rawBody, {
-        "svix-id": svixId,
-        "svix-timestamp": svixTimestamp,
-        "svix-signature": svixSignature,
-      }) as Record<string, unknown>;
-    } else {
-      body = JSON.parse(rawBody);
+    if (!webhookSecret) {
+      console.error("CLERK_WEBHOOK_SECRET is not configured");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
     }
+
+    const svixId = req.headers.get("svix-id");
+    const svixTimestamp = req.headers.get("svix-timestamp");
+    const svixSignature = req.headers.get("svix-signature");
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      return NextResponse.json({ error: "Missing svix headers" }, { status: 400 });
+    }
+
+    const wh = new Webhook(webhookSecret);
+    body = wh.verify(rawBody, {
+      "svix-id": svixId,
+      "svix-timestamp": svixTimestamp,
+      "svix-signature": svixSignature,
+    }) as Record<string, unknown>;
 
     const eventType = body.type as string;
 

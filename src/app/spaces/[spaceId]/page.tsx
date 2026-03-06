@@ -15,7 +15,7 @@ export default function SpaceDetailPage({ params }: { params: Promise<{ spaceId:
   const { spaceId } = use(params);
   const router = useRouter();
 
-  const { data: space } = useQuery<SpaceRow>({
+  const { data: space } = useQuery<SpaceRow & { owner?: { email: string | null; display_name: string | null } }>({
     queryKey: ["space", spaceId],
     queryFn: async () => {
       const res = await fetch(`/api/spaces/${spaceId}`);

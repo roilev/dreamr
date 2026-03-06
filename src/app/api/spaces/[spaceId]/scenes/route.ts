@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
+import { isAdminServer } from "@/lib/clerk/check-role";
 import type { CreateSceneRequest } from "@/lib/types/api";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ spaceId: string }> }) {
@@ -12,8 +13,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ spa
     const user = await ensureUser(clerkId);
     const { spaceId } = await params;
     const supabase = createAdminSupabase();
+    const admin = await isAdminServer();
 
-    const { data: space } = await supabase.from("projects").select("id").eq("id", spaceId).eq("user_id", user.id).single();
+    let ownerQuery = supabase.from("projects").select("id").eq("id", spaceId);
+    if (!admin) ownerQuery = ownerQuery.eq("user_id", user.id);
+
+    const { data: space } = await ownerQuery.single();
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 404 });
 
     const { data, error } = await supabase

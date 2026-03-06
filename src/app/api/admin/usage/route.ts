@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { isAdminServer } from "@/lib/clerk/check-role";
 import { estimateJobCost, getModelDisplayName } from "@/lib/utils/model-pricing";
 
 const EMPTY_RESPONSE = {
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const admin = await isAdminServer();
+    if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const supabase = createAdminSupabase();
     const url = new URL(req.url);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
+import { isAdminServer } from "@/lib/clerk/check-role";
 import type { UpdateSpaceRequest } from "@/lib/types/api";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ spaceId: string }> }) {
@@ -12,13 +13,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ spa
     const user = await ensureUser(clerkId);
     const { spaceId } = await params;
     const supabase = createAdminSupabase();
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("id", spaceId)
-      .eq("user_id", user.id)
-      .single();
+    const admin = await isAdminServer();
 
+    let query = supabase.from("projects").select("*").eq("id", spaceId);
+    if (!admin) query = query.eq("user_id", user.id);
+
+    const { data, error } = await query.single();
     if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(data);
   } catch (err) {
@@ -36,9 +36,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sp
     const body: UpdateSpaceRequest = await req.json();
     const supabase = createAdminSupabase();
 
+    const { name, description } = body as { name?: string; description?: string };
+    const updates = {
+      ...(name !== undefined && { name }),
+      ...(description !== undefined && { description }),
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from("projects")
-      .update({ ...body, updated_at: new Date().toISOString() } as never)
+      .update(updates as never)
       .eq("id", spaceId)
       .eq("user_id", user.id)
       .select()

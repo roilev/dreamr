@@ -1,13 +1,19 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { SceneEditor, SceneName } from "@/components/scene/scene-editor";
+import { AssetGallery } from "@/components/scene/asset-gallery";
+import { GenerationHistory } from "@/components/scene/generation-history";
 import { useScene } from "@/hooks/use-scene";
 import { useGenerationTracker } from "@/hooks/use-generation-tracker";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import type { SpaceRow } from "@/lib/supabase/types";
+
+type SidePanel = "assets" | "history" | null;
 
 export default function SceneEditorPage({
   params,
@@ -15,6 +21,7 @@ export default function SceneEditorPage({
   params: Promise<{ spaceId: string; sceneId: string }>;
 }) {
   const { spaceId, sceneId } = use(params);
+  const [sidePanel, setSidePanel] = useState<SidePanel>(null);
 
   const { data: space } = useQuery<SpaceRow>({
     queryKey: ["space", spaceId],
@@ -28,6 +35,10 @@ export default function SceneEditorPage({
   const { data: scene } = useScene(sceneId);
   const { activeSteps, startTracking, stopTracking, isGenerating } =
     useGenerationTracker(sceneId);
+
+  const handleOpenPanel = useCallback((panel: "assets" | "history") => {
+    setSidePanel((prev) => (prev === panel ? null : panel));
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
@@ -52,6 +63,7 @@ export default function SceneEditorPage({
           <AppHeader
             spaceName={space?.name}
             spaceId={spaceId}
+            sceneId={sceneId}
             sceneNameSlot={
               <SceneName
                 sceneId={sceneId}
@@ -61,9 +73,54 @@ export default function SceneEditorPage({
             overlay
             scene={scene}
             activeSteps={activeSteps}
+            onOpenPanel={handleOpenPanel}
           />
         </div>
       </div>
+
+      {/* Side panel for Assets / History */}
+      <AnimatePresence>
+        {sidePanel && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-black/30"
+              onClick={() => setSidePanel(null)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="absolute right-0 top-0 bottom-0 z-50 w-full max-w-md border-l border-[var(--border-default)] bg-[var(--bg-primary)] shadow-2xl"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
+                  {sidePanel === "assets" ? "Asset Gallery" : "Generation History"}
+                </span>
+                <button
+                  onClick={() => setSidePanel(null)}
+                  className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="h-[calc(100%-52px)] overflow-hidden">
+                {sidePanel === "assets" ? (
+                  <AssetGallery
+                    sceneId={sceneId}
+                    onClose={() => setSidePanel(null)}
+                  />
+                ) : (
+                  <GenerationHistory sceneId={sceneId} />
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

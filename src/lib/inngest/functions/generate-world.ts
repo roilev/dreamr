@@ -83,7 +83,8 @@ export const worldGeneration = inngest.createFunction(
         .eq("id", sceneId)
         .single() as { data: Pick<SceneRow, "prompt"> | null; error: unknown };
 
-      const { operationId } = await generateWorld(imageUrl, scene?.prompt ?? undefined, { isPano: true });
+      const textPrompt = scene?.prompt ?? undefined;
+      const { operationId } = await generateWorld(imageUrl, textPrompt, { isPano: true });
       const logId = await logGenerationStart(sceneId, "world", "marble", "marble-world-gen", userId);
 
       const { data: job, error: jobError } = await supabase
@@ -96,7 +97,11 @@ export const worldGeneration = inngest.createFunction(
           model_id: "marble-world-gen",
           provider_request_id: operationId,
           started_at: new Date().toISOString(),
-          input_metadata: null,
+          input_metadata: {
+            text_prompt: textPrompt ?? null,
+            source_image: imageUrl,
+            is_pano: true,
+          },
           output_metadata: null,
           error_message: null,
           completed_at: null,

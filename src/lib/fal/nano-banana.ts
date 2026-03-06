@@ -2,7 +2,7 @@ import { fal } from "./client";
 import type { NanoBanana2Input, NanoBanana2EditInput, NanoBanana2Output } from "./types";
 import { FAL_MODELS } from "@/lib/utils/constants";
 
-const EQUIRECT_TEXT_PROMPT =
+export const EQUIRECT_TEXT_PROMPT =
   "Generate a seamless 360-degree equirectangular panoramic image. " +
   "The image must have a 2:1 aspect ratio with the full 360 horizontal field of view. " +
   "The left edge and right edge must connect seamlessly when wrapped into a sphere. " +
@@ -10,7 +10,7 @@ const EQUIRECT_TEXT_PROMPT =
   "Avoid visible seams, distortion artifacts, or repeated patterns at the wrap boundary. " +
   "The scene: ";
 
-const EQUIRECT_SINGLE_IMAGE_PROMPT =
+export const EQUIRECT_SINGLE_IMAGE_PROMPT =
   "Expand this reference image into a complete seamless 360-degree equirectangular panoramic image. " +
   "The reference image is placed within a 2:1 equirectangular projection canvas. " +
   "Fill the remaining areas by naturally extending the scene in all directions, " +
@@ -18,7 +18,7 @@ const EQUIRECT_SINGLE_IMAGE_PROMPT =
   "The left and right edges of the output must connect seamlessly when wrapped into a sphere. " +
   "Produce a full spherical panorama suitable for VR viewing. ";
 
-const EQUIRECT_COMPOSITE_PROMPT =
+export const EQUIRECT_COMPOSITE_PROMPT =
   "Complete this partial 360-degree equirectangular panoramic image. " +
   "Multiple reference images have been placed at specific positions on a 2:1 equirectangular canvas. " +
   "Fill all remaining empty/dark areas with generated content that seamlessly blends " +

@@ -11,6 +11,8 @@ import { VideoSphere } from "./video-sphere";
 import { DepthView } from "./depth-view";
 import { InputCanvasView } from "./input-canvas-view";
 import { Loader2, ImagePlus, Minus, Plus } from "lucide-react";
+import { SplatWorld } from "./splat-world";
+import { PlatformControls } from "./controls";
 import * as THREE from "three";
 import type { ViewerMode, ViewerInputImage } from "@/lib/types/stores";
 
@@ -335,11 +337,7 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
   }
 
   if (mode === "splat") {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        Splat viewer coming soon — generate a 3D world first
-      </div>
-    );
+    return <SplatWorld />;
   }
 
   if (mode === "input_canvas") {
@@ -366,13 +364,7 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
         <Suspense fallback={null}>
           <CameraAligner />
           <ViewerContent />
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            rotateSpeed={-0.3}
-            touches={{ ONE: 1, TWO: 2 }}
-            target={[0, 0, 0]}
-          />
+          <PlatformControls mode={mode} />
         </Suspense>
       </Canvas>
     </div>

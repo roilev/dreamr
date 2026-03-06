@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
+import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
+import { isAdminServer } from "@/lib/clerk/check-role";
 import type { UpdateSceneRequest } from "@/lib/types/api";
-
-async function ensureSceneOwnership(supabase: ReturnType<typeof createAdminSupabase>, sceneId: string, userId: string) {
-  const { data: scene } = await supabase.from("scenes").select("project_id").eq("id", sceneId).single();
-  if (!scene) return false;
-  const spaceId = (scene as { project_id: string }).project_id;
-  const { data: space } = await supabase.from("projects").select("id").eq("id", spaceId).eq("user_id", userId).single();
-  return !!space;
-}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ sceneId: string }> }) {
   try {
@@ -25,7 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ sce
     if (error || !scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!owns) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     const [inputs, jobs, assets, worlds] = await Promise.all([
       supabase.from("scene_inputs").select("*").eq("scene_id", sceneId).order("sort_order"),
@@ -59,9 +56,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
     const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
     if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const { name, prompt, description } = body as { name?: string; prompt?: string; description?: string };
+    const updates = {
+      ...(name !== undefined && { name }),
+      ...(prompt !== undefined && { prompt }),
+      ...(description !== undefined && { description }),
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from("scenes")
-      .update({ ...body, updated_at: new Date().toISOString() } as never)
+      .update(updates as never)
       .eq("id", sceneId)
       .select()
       .single();

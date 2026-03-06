@@ -26,6 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useViewerStore } from "@/lib/stores/viewer-store";
 import { cn } from "@/lib/utils/cn";
 import { PIPELINE_STEP_LABELS } from "@/lib/utils/constants";
+import { useWorldGenerationStatus } from "@/hooks/use-world";
 import type { SceneInputRow, AssetRow } from "@/lib/supabase/types";
 import type { GetSceneResponse, PipelineStepName } from "@/lib/types/api";
 import type { ViewerMode } from "@/lib/types/stores";
@@ -425,7 +426,9 @@ export function ControlCenter({
   const runStep = useRunStep(sceneId);
   const generateWorld = useGenerateWorld(sceneId);
   const queryClient = useQueryClient();
-  const { setMode, setEquirectUrl, setVideoUrl: setStoreVideoUrl, setDepthUrl } = useViewerStore();
+  const { setMode, setEquirectUrl, setVideoUrl: setStoreVideoUrl, setDepthUrl, setSplatUrls, setColliderUrl: setStoreColliderUrl } = useViewerStore();
+  const { data: worldGenStatus } = useWorldGenerationStatus(sceneId);
+  const worldIsGenerating = worldGenStatus?.status === "pending" || worldGenStatus?.status === "running";
 
   useEffect(() => setPrompt(initialPrompt ?? ""), [initialPrompt]);
 
@@ -450,6 +453,17 @@ export function ControlCenter({
       return;
     }
 
+    if (tab.viewerMode === "splat") {
+      const vs = useViewerStore.getState();
+      if (vs.splatUrls.urlFull || vs.splatUrls.url100k) {
+        setMode("splat");
+      } else if (latestAsset?.public_url) {
+        setSplatUrls({ urlFull: latestAsset.public_url });
+        setMode("splat");
+      }
+      return;
+    }
+
     if (latestAsset?.public_url) {
       const url = latestAsset.public_url;
       switch (tab.viewerMode) {
@@ -469,6 +483,13 @@ export function ControlCenter({
       case "equirect": setEquirectUrl(url); break;
       case "video": setStoreVideoUrl(url); break;
       case "depth": setDepthUrl(url); break;
+      case "splat": {
+        const key = asset.type === "splat_100k" ? "url100k"
+          : asset.type === "splat_500k" ? "url500k"
+          : "urlFull";
+        setSplatUrls({ [key]: url });
+        break;
+      }
     }
     setMode(tab.viewerMode);
   };
@@ -649,7 +670,7 @@ export function ControlCenter({
             const count = assetsForTab(tab).length;
             const isActiveTab = activeTab === tab.key;
             const Icon = tab.icon;
-            const processing = activeSteps.includes(tab.pipelineStep ?? "");
+            const processing = activeSteps.includes(tab.pipelineStep ?? "") || (tab.key === "world" && worldIsGenerating);
             const tabAssets = assetsForTab(tab);
 
             return (
@@ -731,7 +752,7 @@ export function ControlCenter({
 
         {/* Active generation bar */}
         <AnimatePresence>
-          {activeSteps.length > 0 && (
+          {(activeSteps.length > 0 || worldIsGenerating) && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -753,6 +774,19 @@ export function ControlCenter({
                     {PIPELINE_STEP_LABELS[step as keyof typeof PIPELINE_STEP_LABELS] || step}
                   </motion.div>
                 ))}
+                {worldIsGenerating && !activeSteps.includes("world") && (
+                  <motion.div
+                    key="world-gen"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)]/10 px-3 py-1 text-xs font-medium text-[var(--accent-primary)]"
+                  >
+                    <Loader2 size={10} className="animate-spin" />
+                    3D World
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           )}

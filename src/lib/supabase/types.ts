@@ -72,6 +72,7 @@ export interface SceneRow {
   current_step: PipelineStep | null;
   prompt: string | null;
   thumbnail_url: string | null;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 }

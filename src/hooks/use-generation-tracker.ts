@@ -13,7 +13,7 @@ interface ActiveGeneration {
 
 interface JobData {
   id: string;
-  step_name: string;
+  step: string;
   status: string;
   error_message: string | null;
   created_at: string;
@@ -103,7 +103,7 @@ export function useGenerationTracker(sceneId: string) {
         const hasNewAsset = expectedAssets.some((t) => assetTypes.has(t)) && currentAssetCount > gen.baseAssetCount;
         const timedOut = Date.now() - gen.startedAt > 600_000;
 
-        const stepJobs = jobs.filter((j) => j.step_name === step);
+        const stepJobs = jobs.filter((j) => j.step === step);
         const newJobs = stepJobs.filter((j) => new Date(j.created_at).getTime() >= gen.startedAt - 5000);
         const failedJob = newJobs.find((j) => j.status === "failed");
         const completedJob = newJobs.find((j) => j.status === "completed");
