@@ -13,13 +13,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ sce
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { data, error } = await supabase
       .from("assets")
       .select("*")
-      .eq("scene_id", sceneId)
+      .eq("scene_id", resolvedSceneId)
       .order("created_at", { ascending: true });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

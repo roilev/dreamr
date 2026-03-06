@@ -17,15 +17,15 @@ export async function POST(
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const formData = await req.formData();
     const file = formData.get("frame") as File | null;
     if (!file) return NextResponse.json({ error: "No frame provided" }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const storagePath = `${user.id}/${sceneId}/captured-frame-${Date.now()}.png`;
+    const storagePath = `${user.id}/${resolvedSceneId}/captured-frame-${Date.now()}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from(SUPABASE_BUCKETS.GENERATED_ASSETS)

@@ -18,23 +18,23 @@ type SidePanel = "assets" | "history" | null;
 export default function SceneEditorPage({
   params,
 }: {
-  params: Promise<{ spaceId: string; sceneId: string }>;
+  params: Promise<{ spaceSlug: string; sceneSlug: string }>;
 }) {
-  const { spaceId, sceneId } = use(params);
+  const { spaceSlug, sceneSlug } = use(params);
   const [sidePanel, setSidePanel] = useState<SidePanel>(null);
 
   const { data: space } = useQuery<SpaceRow>({
-    queryKey: ["space", spaceId],
+    queryKey: ["space", spaceSlug],
     queryFn: async () => {
-      const res = await fetch(`/api/spaces/${spaceId}`);
+      const res = await fetch(`/api/spaces/${spaceSlug}`);
       if (!res.ok) throw new Error("Failed to fetch space");
       return res.json();
     },
   });
 
-  const { data: scene } = useScene(sceneId);
+  const { data: scene } = useScene(sceneSlug);
   const { activeSteps, startTracking, stopTracking, isGenerating } =
-    useGenerationTracker(sceneId);
+    useGenerationTracker(sceneSlug);
 
   const handleOpenPanel = useCallback((panel: "assets" | "history") => {
     setSidePanel((prev) => (prev === panel ? null : panel));
@@ -46,8 +46,8 @@ export default function SceneEditorPage({
       <div className="absolute inset-0">
         <ErrorBoundary>
           <SceneEditor
-            sceneId={sceneId}
-            spaceId={spaceId}
+            sceneId={sceneSlug}
+            spaceId={spaceSlug}
             spaceName={space?.name}
             activeSteps={activeSteps}
             startTracking={startTracking}
@@ -62,11 +62,11 @@ export default function SceneEditorPage({
         <div className="pointer-events-auto">
           <AppHeader
             spaceName={space?.name}
-            spaceId={spaceId}
-            sceneId={sceneId}
+            spaceId={spaceSlug}
+            sceneId={sceneSlug}
             sceneNameSlot={
               <SceneName
-                sceneId={sceneId}
+                sceneId={sceneSlug}
                 name={scene?.name ?? "Untitled Scene"}
               />
             }
@@ -110,11 +110,11 @@ export default function SceneEditorPage({
               <div className="h-[calc(100%-52px)] overflow-hidden">
                 {sidePanel === "assets" ? (
                   <AssetGallery
-                    sceneId={sceneId}
+                    sceneId={sceneSlug}
                     onClose={() => setSidePanel(null)}
                   />
                 ) : (
-                  <GenerationHistory sceneId={sceneId} />
+                  <GenerationHistory sceneId={sceneSlug} />
                 )}
               </div>
             </motion.div>

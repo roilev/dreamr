@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { createBrowserSupabase } from "@/lib/supabase/client";
+import { isUUID } from "@/lib/ids";
 import type { SceneWorldRow } from "@/lib/supabase/types";
 
 export interface WorldWithAssets extends SceneWorldRow {
@@ -11,17 +12,27 @@ export interface WorldWithAssets extends SceneWorldRow {
   colliderUrl: string | null;
 }
 
+async function resolveSceneUUID(sceneId: string): Promise<string | null> {
+  if (isUUID(sceneId)) return sceneId;
+  const res = await fetch(`/api/scenes/${sceneId}`);
+  if (!res.ok) return null;
+  const scene = await res.json();
+  return scene.id ?? null;
+}
+
 export function useSceneWorld(sceneId: string | undefined) {
   return useQuery<WorldWithAssets | null>({
     queryKey: ["scene-world", sceneId],
     queryFn: async () => {
       if (!sceneId) return null;
-      const supabase = createBrowserSupabase();
+      const uuid = await resolveSceneUUID(sceneId);
+      if (!uuid) return null;
 
+      const supabase = createBrowserSupabase();
       const { data: world, error } = await supabase
         .from("scene_worlds")
         .select("*")
-        .eq("scene_id", sceneId)
+        .eq("scene_id", uuid)
         .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(1)
@@ -64,12 +75,14 @@ export function useWorldGenerationStatus(sceneId: string | undefined) {
     queryKey: ["world-gen-status", sceneId],
     queryFn: async () => {
       if (!sceneId) return null;
-      const supabase = createBrowserSupabase();
+      const uuid = await resolveSceneUUID(sceneId);
+      if (!uuid) return null;
 
+      const supabase = createBrowserSupabase();
       const { data, error } = await supabase
         .from("scene_worlds")
         .select("id, status, marble_operation_id")
-        .eq("scene_id", sceneId)
+        .eq("scene_id", uuid)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle() as { data: { id: string; status: string; marble_operation_id: string | null } | null; error: unknown };

@@ -14,7 +14,7 @@ export function SpaceCard({ space, owner }: SpaceCardProps) {
   const ownerLabel = owner?.display_name || owner?.email || null;
 
   return (
-    <Link href={`/spaces/${space.id}`}>
+    <Link href={`/${space.short_id}`}>
       <motion.div
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}

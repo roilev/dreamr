@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { isAdminServer } from "@/lib/clerk/check-role";
+import { idColumn } from "@/lib/ids";
 import type { UpdateSpaceRequest } from "@/lib/types/api";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ spaceId: string }> }) {
@@ -15,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ spa
     const supabase = createAdminSupabase();
     const admin = await isAdminServer();
 
-    let query = supabase.from("projects").select("*").eq("id", spaceId);
+    let query = supabase.from("spaces").select("*").eq(idColumn(spaceId) as never, spaceId);
     if (!admin) query = query.eq("user_id", user.id);
 
     const { data, error } = await query.single();
@@ -44,9 +45,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sp
     };
 
     const { data, error } = await supabase
-      .from("projects")
+      .from("spaces")
       .update(updates as never)
-      .eq("id", spaceId)
+      .eq(idColumn(spaceId) as never, spaceId)
       .eq("user_id", user.id)
       .select()
       .single();
@@ -67,9 +68,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const { spaceId } = await params;
     const supabase = createAdminSupabase();
     const { error } = await supabase
-      .from("projects")
+      .from("spaces")
       .delete()
-      .eq("id", spaceId)
+      .eq(idColumn(spaceId) as never, spaceId)
       .eq("user_id", user.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

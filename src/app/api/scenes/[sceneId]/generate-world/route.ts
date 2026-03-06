@@ -25,13 +25,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sce
     }
 
     const supabase = createAdminSupabase();
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await inngest.send({
       name: "dreamr/world.generate",
       data: {
-        sceneId,
+        sceneId: resolvedSceneId,
         userId: user.id,
         frameAssetId: body.frameAssetId ?? null,
         ...(body.imageUrl && { imageUrl: body.imageUrl }),

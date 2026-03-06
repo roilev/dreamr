@@ -29,14 +29,14 @@ export async function POST(
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns)
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { data: scene } = await supabase
       .from("scenes")
       .select("share_token")
-      .eq("id", sceneId)
+      .eq("id", resolvedSceneId)
       .single();
 
     if (!scene)
@@ -55,7 +55,7 @@ export async function POST(
     const { error } = await supabase
       .from("scenes")
       .update({ share_token: shareToken } as never)
-      .eq("id", sceneId);
+      .eq("id", resolvedSceneId);
 
     if (error)
       return NextResponse.json(
@@ -92,14 +92,14 @@ export async function DELETE(
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns)
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { error } = await supabase
       .from("scenes")
       .update({ share_token: null } as never)
-      .eq("id", sceneId);
+      .eq("id", resolvedSceneId);
 
     if (error)
       return NextResponse.json(

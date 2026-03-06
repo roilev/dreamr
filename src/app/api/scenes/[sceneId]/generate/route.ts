@@ -40,12 +40,12 @@ export async function POST(
     }
 
     const supabase = createAdminSupabase();
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns)
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const eventData: Record<string, unknown> = {
-      sceneId,
+      sceneId: resolvedSceneId,
       userId: user.id,
     };
 

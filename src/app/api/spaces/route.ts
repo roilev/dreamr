@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { isAdminServer } from "@/lib/clerk/check-role";
+import { generateShortId } from "@/lib/ids";
 import type { CreateSpaceRequest } from "@/lib/types/api";
 
 export async function GET(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     if (wantAll && admin) {
       const { data: allSpaces, error } = await supabase
-        .from("projects")
+        .from("spaces")
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from("projects")
+      .from("spaces")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -66,8 +67,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabase();
     const { data, error } = await supabase
-      .from("projects")
-      .insert({ user_id: user.id, name: body.name, description: body.description ?? null, thumbnail_url: null } as never)
+      .from("spaces")
+      .insert({ user_id: user.id, name: body.name, description: body.description ?? null, thumbnail_url: null, short_id: generateShortId() } as never)
       .select()
       .single();
 

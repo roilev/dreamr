@@ -11,30 +11,30 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import type { SpaceRow, SceneRow } from "@/lib/supabase/types";
 
-export default function SpaceDetailPage({ params }: { params: Promise<{ spaceId: string }> }) {
-  const { spaceId } = use(params);
+export default function SpaceDetailPage({ params }: { params: Promise<{ spaceSlug: string }> }) {
+  const { spaceSlug } = use(params);
   const router = useRouter();
 
   const { data: space } = useQuery<SpaceRow & { owner?: { email: string | null; display_name: string | null } }>({
-    queryKey: ["space", spaceId],
+    queryKey: ["space", spaceSlug],
     queryFn: async () => {
-      const res = await fetch(`/api/spaces/${spaceId}`);
+      const res = await fetch(`/api/spaces/${spaceSlug}`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
   });
 
   const { data: scenes, isLoading: scenesLoading } = useQuery<SceneRow[]>({
-    queryKey: ["scenes", spaceId],
+    queryKey: ["scenes", spaceSlug],
     queryFn: async () => {
-      const res = await fetch(`/api/spaces/${spaceId}/scenes`);
+      const res = await fetch(`/api/spaces/${spaceSlug}/scenes`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
   });
 
   const createScene = async () => {
-    const res = await fetch(`/api/spaces/${spaceId}/scenes`, {
+    const res = await fetch(`/api/spaces/${spaceSlug}/scenes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,7 +45,7 @@ export default function SpaceDetailPage({ params }: { params: Promise<{ spaceId:
     });
     if (res.ok) {
       const scene = await res.json();
-      router.push(`/spaces/${spaceId}/scenes/${scene.id}`);
+      router.push(`/${spaceSlug}/scene/${scene.short_id}`);
     }
   };
 
@@ -102,7 +102,7 @@ export default function SpaceDetailPage({ params }: { params: Promise<{ spaceId:
                 key={scene.id}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => router.push(`/spaces/${spaceId}/scenes/${scene.id}`)}
+                onClick={() => router.push(`/${spaceSlug}/scene/${scene.short_id}`)}
                 className="glow-border bg-[var(--bg-surface)] p-4 cursor-pointer"
               >
                 <h3 className="font-medium">{scene.name}</h3>

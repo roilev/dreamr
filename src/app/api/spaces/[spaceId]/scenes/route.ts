@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { isAdminServer } from "@/lib/clerk/check-role";
+import { idColumn, generateShortId } from "@/lib/ids";
 import type { CreateSceneRequest } from "@/lib/types/api";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ spaceId: string }> }) {
@@ -15,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ spa
     const supabase = createAdminSupabase();
     const admin = await isAdminServer();
 
-    let ownerQuery = supabase.from("projects").select("id").eq("id", spaceId);
+    let ownerQuery = supabase.from("spaces").select("id").eq(idColumn(spaceId) as never, spaceId);
     if (!admin) ownerQuery = ownerQuery.eq("user_id", user.id);
 
     const { data: space } = await ownerQuery.single();
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ spa
     const { data, error } = await supabase
       .from("scenes")
       .select("*")
-      .eq("project_id", spaceId)
+      .eq("space_id", (space as { id: string }).id)
       .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -44,18 +45,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ spa
     const body: CreateSceneRequest = await req.json();
     const supabase = createAdminSupabase();
 
-    const { data: space } = await supabase.from("projects").select("id").eq("id", spaceId).eq("user_id", user.id).single();
+    const { data: space } = await supabase.from("spaces").select("id").eq(idColumn(spaceId) as never, spaceId).eq("user_id", user.id).single();
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 404 });
 
     const { data, error } = await supabase
       .from("scenes")
       .insert({
-        project_id: spaceId,
+        space_id: (space as { id: string }).id,
         name: body.name || "Untitled Scene",
         prompt: body.prompt ?? null,
         status: "draft",
         current_step: null,
         thumbnail_url: null,
+        short_id: generateShortId(),
       } as never)
       .select()
       .single();

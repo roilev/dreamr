@@ -137,7 +137,7 @@ export async function logGenerationStart(
 
   const { data: scene } = await supabase
     .from("scenes")
-    .select("project_id")
+    .select("space_id")
     .eq("id", sceneId)
     .single();
 
@@ -146,7 +146,7 @@ export async function logGenerationStart(
     .insert({
       user_id: userId ?? null,
       scene_id: sceneId,
-      project_id: (scene as any)?.project_id ?? null,
+      space_id: (scene as any)?.space_id ?? null,
       step,
       provider,
       model_id: modelId,

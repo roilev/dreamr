@@ -10,7 +10,7 @@ import type { SceneRow } from "@/lib/supabase/types";
 export function Sidebar() {
   const params = useParams();
   const pathname = usePathname();
-  const spaceId = params.spaceId as string | undefined;
+  const spaceId = (params.spaceSlug ?? params.spaceId) as string | undefined;
 
   const { data: scenes, isLoading } = useQuery<SceneRow[]>({
     queryKey: ["scenes", spaceId],
@@ -29,7 +29,7 @@ export function Sidebar() {
       <div className="flex items-center justify-between p-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
         <span>Scenes</span>
         <Link
-          href={`/spaces/${spaceId}?new=1`}
+          href={`/${spaceId}?new=1`}
           className="rounded p-1 hover:bg-[var(--bg-surface)] transition-colors"
         >
           <Plus size={14} />
@@ -42,7 +42,7 @@ export function Sidebar() {
           </div>
         )}
         {scenes?.map((scene) => {
-          const href = `/spaces/${spaceId}/scenes/${scene.id}`;
+          const href = `/${spaceId}/scene/${scene.short_id}`;
           const isActive = pathname === href;
           return (
             <Link

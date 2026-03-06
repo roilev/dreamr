@@ -53,12 +53,7 @@ Admin access uses Clerk's `publicMetadata.role` field — **not** env vars.
 ### Known issues
 
 - **ESLint**: `npm run lint` fails with `TypeError: Converting circular structure to JSON`. Known compatibility issue between `eslint-config-next@16.1.6` using `FlatCompat` and `@eslint/eslintrc`. The package already exports native flat configs that would fix this.
-- **Migration 004 not applied**: `supabase/migrations/004_rename_projects_to_spaces.sql` renames `projects` → `spaces` and `project_id` → `space_id`, but has not been applied to the live Supabase instance. All API routes still use `projects`/`project_id`. Applying this migration without updating the code will break all API routes.
-- **Migration 005 depends on 004**: `generation_logs` table references `public.projects(id)` but migration 004 renames it to `spaces`. The `generation_logs` table does not exist in the current database.
-
-### Follow-up tasks
-
-- **Apply migrations 004 + 005 and update all code**: This is a coordinated refactor that must be done atomically. Steps: (1) Update migration 005 to reference `spaces` instead of `projects`. (2) Find-and-replace `from("projects")` → `from("spaces")` and `project_id` → `space_id` across all API routes, Inngest functions, and `src/lib/supabase/ensure-scene-ownership.ts`. (3) Remove `as never` casts from Supabase queries since the TypeScript `Database` type already uses `spaces`/`space_id`. (4) Apply migrations 004 and 005 to the live Supabase instance. (5) Test every API endpoint. Do NOT apply the migrations without the code changes — it will break all routes.
+- **Migrations 004-007 pending**: Code has been updated to use `spaces`/`space_id`/`short_id`. Migrations must be applied to the live Supabase instance in order: 004 (rename projects→spaces), 005 (generation_logs), 006 (share_tokens), 007 (short_ids). The app will not work until these are applied.
 
 ### Key conventions
 
@@ -66,4 +61,7 @@ Admin access uses Clerk's `publicMetadata.role` field — **not** env vars.
 - See `.cursor/rules/dreamr.mdc` for coding conventions and file ownership rules
 - No test framework is configured; test fixtures exist at `src/test/fixtures/` for future use
 - Package manager is **npm** (lockfile is `package-lock.json`)
-- The database table is still called `projects` (not `spaces`) and the FK column is `project_id` (not `space_id`), despite migration 004 and the TypeScript `Database` type using the new names. All Supabase queries bypass type checking via `as never` casts.
+- URL structure: `/{spaceShortId}/scene/{sceneShortId}` (short 10-char nanoid-style IDs)
+- ID utilities in `src/lib/ids.ts`: `generateShortId()`, `isUUID()`, `idColumn()`
+- All API routes accept both UUID and `short_id` for space/scene lookups
+- `ensureSceneOwnership()` returns the resolved UUID (string) or null, not a boolean

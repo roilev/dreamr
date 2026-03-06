@@ -20,6 +20,7 @@ export const mockUser: UserRow = {
 
 export const mockSpace: SpaceRow = {
   id: "proj-001",
+  short_id: "aB3kF9mNp2",
   user_id: "user-001",
   name: "My First World",
   description: "A dreamy fantasy landscape",
@@ -30,6 +31,7 @@ export const mockSpace: SpaceRow = {
 
 export const mockScene: SceneRow = {
   id: "scene-001",
+  short_id: "xY7qR2sLm4",
   space_id: "proj-001",
   name: "Enchanted Forest",
   status: "draft",

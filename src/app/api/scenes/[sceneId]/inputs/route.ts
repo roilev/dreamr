@@ -15,13 +15,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sce
     const body: AddSceneInputRequest = await req.json();
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { data, error } = await supabase
       .from("scene_inputs")
       .insert({
-        scene_id: sceneId,
+        scene_id: resolvedSceneId,
         type: body.type,
         content: body.content ?? null,
         storage_path: body.storage_path ?? null,
@@ -50,8 +50,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
     const body: { id: string; position_x?: number; position_y?: number; position_z?: number }[] = await req.json();
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const updates = await Promise.all(
       body.map(async (item) => {
@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
           .from("scene_inputs")
           .update(patch as never)
           .eq("id", item.id)
-          .eq("scene_id", sceneId);
+          .eq("scene_id", resolvedSceneId);
 
         return { id: item.id, error: error?.message };
       }),

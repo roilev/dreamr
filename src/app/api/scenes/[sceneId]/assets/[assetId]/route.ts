@@ -19,8 +19,8 @@ export async function DELETE(
     const { sceneId, assetId } = await params;
     const supabase = createAdminSupabase();
 
-    const owns = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!owns) {
+    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -28,7 +28,7 @@ export async function DELETE(
       .from("assets")
       .select("*")
       .eq("id", assetId)
-      .eq("scene_id", sceneId)
+      .eq("scene_id", resolvedSceneId)
       .single();
 
     const asset = assetData as AssetRow | null;

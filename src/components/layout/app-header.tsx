@@ -479,7 +479,7 @@ export function AppHeader({
           {/* Breadcrumb */}
           {hasNav && (
             <div className="flex items-baseline gap-1.5">
-              <NavPill href={`/spaces/${spaceId}`}>
+              <NavPill href={`/${spaceId}`}>
                 <span className="text-[13px] uppercase tracking-wide font-light text-white/70">
                   {spaceName}
                 </span>
@@ -565,7 +565,7 @@ export function AppHeader({
         <>
           <span className="mx-1 text-[var(--text-muted)] select-none text-xs">/</span>
           <Link
-            href={`/spaces/${spaceId}`}
+            href={`/${spaceId}`}
             className="text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors truncate max-w-[200px]"
           >
             {spaceName}

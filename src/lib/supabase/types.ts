@@ -53,6 +53,7 @@ export interface UserRow {
 
 export interface SpaceRow {
   id: string;
+  short_id: string;
   user_id: string;
   name: string;
   description: string | null;
@@ -61,11 +62,9 @@ export interface SpaceRow {
   updated_at: string;
 }
 
-/** @deprecated Use SpaceRow. Kept for backward compatibility during projects→spaces migration. */
-export type ProjectRow = SpaceRow;
-
 export interface SceneRow {
   id: string;
+  short_id: string;
   space_id: string;
   name: string;
   status: SceneStatus;
@@ -141,7 +140,7 @@ export interface GenerationLogRow {
   id: string;
   user_id: string | null;
   scene_id: string | null;
-  project_id: string | null;
+  space_id: string | null;
   step: string;
   provider: string;
   model_id: string;
@@ -157,12 +156,14 @@ export interface GenerationLogRow {
 
 // ── Insert types (omit auto-generated fields) ──
 
-export type SpaceInsert = Omit<SpaceRow, "id" | "created_at" | "updated_at"> & {
+export type SpaceInsert = Omit<SpaceRow, "id" | "short_id" | "created_at" | "updated_at"> & {
   id?: string;
+  short_id?: string;
 };
 
-export type SceneInsert = Omit<SceneRow, "id" | "created_at" | "updated_at" | "status" | "current_step"> & {
+export type SceneInsert = Omit<SceneRow, "id" | "short_id" | "created_at" | "updated_at" | "status" | "current_step"> & {
   id?: string;
+  short_id?: string;
   status?: SceneStatus;
   current_step?: PipelineStep | null;
 };
