@@ -58,77 +58,112 @@ function SlotCell({
   const isHorizontalSlot = slot.row === 1;
 
   return (
-    <motion.div
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      style={{
-        perspective: isHorizontalSlot ? "400px" : undefined,
-      }}
-      className={cn(
-        "relative rounded-xl border-2 border-dashed transition-all duration-200",
-        "flex items-center justify-center overflow-hidden",
-        isDragOver
-          ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 scale-105"
-          : image
-            ? "border-white/15 bg-white/5"
-            : "border-white/10 bg-white/[0.02] hover:border-white/20",
-        isHorizontalSlot ? "aspect-[4/3]" : "aspect-square",
-      )}
-    >
+    <div className="relative p-1">
       <motion.div
-        className="w-full h-full flex items-center justify-center"
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
         style={{
-          transform: isHorizontalSlot ? `rotateY(${slot.rotateY}deg)` : undefined,
-          transformStyle: "preserve-3d",
+          perspective: isHorizontalSlot ? "400px" : undefined,
         }}
-      >
-        {image ? (
-          <div className="group relative w-full h-full">
-            <img
-              src={image.url}
-              alt={slot.label}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", image.id);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              className="w-full h-full object-cover rounded-lg cursor-grab active:cursor-grabbing"
-            />
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-lg">
-              <GripVertical size={16} className="text-white/70" />
-            </div>
-            {onRemove && (
-              <button
-                onClick={onRemove}
-                className="absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-md hidden group-hover:flex z-10"
-              >
-                <X size={10} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div
-            className="flex flex-col items-center gap-1 cursor-pointer p-2"
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = "image/*";
-              input.onchange = (e) => {
-                const files = Array.from((e.target as HTMLInputElement).files || []);
-                if (files.length > 0) onFileDrop(files);
-              };
-              input.click();
-            }}
-          >
-            <ImagePlus size={16} className="text-white/30" />
-            <span className="text-[9px] text-white/30 font-medium uppercase tracking-wider">
-              {slot.label}
-            </span>
-          </div>
+        className={cn(
+          "relative rounded-xl border-2 border-dashed transition-all duration-200",
+          "flex items-center justify-center",
+          isDragOver
+            ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 scale-105"
+            : image
+              ? "border-white/15 bg-white/5"
+              : "border-white/10 bg-white/[0.02] hover:border-white/20",
+          "aspect-square",
         )}
+      >
+        <motion.div
+          className="w-full h-full flex items-center justify-center overflow-hidden rounded-[10px]"
+          style={{
+            transform: isHorizontalSlot ? `rotateY(${slot.rotateY}deg)` : undefined,
+            transformStyle: "preserve-3d",
+          }}
+        >
+          {image ? (
+            <div className="group relative w-full h-full">
+              <img
+                src={image.url}
+                alt={slot.label}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", image.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                className="w-full h-full object-contain rounded-[10px] cursor-grab active:cursor-grabbing bg-black/20"
+              />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-[10px]">
+                <GripVertical size={16} className="text-white/70" />
+              </div>
+            </div>
+          ) : (
+            <div
+              className="flex flex-col items-center gap-1 cursor-pointer p-2"
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = "image/*";
+                input.onchange = (e) => {
+                  const files = Array.from((e.target as HTMLInputElement).files || []);
+                  if (files.length > 0) onFileDrop(files);
+                };
+                input.click();
+              }}
+            >
+              <ImagePlus size={16} className="text-white/30" />
+              <span className="text-[9px] text-white/30 font-medium uppercase tracking-wider">
+                {slot.label}
+              </span>
+            </div>
+          )}
+        </motion.div>
       </motion.div>
-    </motion.div>
+
+      {/* X button rendered outside the overflow-hidden container */}
+      {image && onRemove && (
+        <button
+          onClick={onRemove}
+          className="absolute top-0 right-0 z-20 h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white shadow-md opacity-0 hover:opacity-100 transition-opacity"
+          style={{ transform: "translate(25%, -25%)" }}
+        >
+          <X size={10} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SingleImageView({
+  image,
+  onRemove,
+}: {
+  image: SlotImage;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-center h-full w-full p-8">
+      <div className="relative max-w-md w-full">
+        <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-white/5">
+          <img
+            src={image.url}
+            alt="Reference"
+            className="w-full h-auto max-h-[60vh] object-contain bg-black/20"
+          />
+        </div>
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            className="absolute -top-2 -right-2 z-20 h-6 w-6 flex items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -170,15 +205,23 @@ export function InputSlotGrid({
     }
   }, [onMoveImage, onDropFiles]);
 
+  if (images.length === 1) {
+    return (
+      <SingleImageView
+        image={images[0]}
+        onRemove={onRemoveImage ? () => onRemoveImage(images[0].id) : undefined}
+      />
+    );
+  }
+
   return (
     <div className={cn("flex items-center justify-center h-full w-full p-8", className)}>
       <div className="w-full max-w-lg">
-        {/* Curved panoramic grid */}
         <div
-          className="grid gap-2"
+          className="grid gap-1"
           style={{
-            gridTemplateColumns: "1fr 1.5fr 1fr 1fr",
-            gridTemplateRows: "auto auto auto",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateRows: "repeat(3, 1fr)",
           }}
         >
           {SLOT_CONFIG.map((slot) => (
@@ -207,7 +250,6 @@ export function InputSlotGrid({
           ))}
         </div>
 
-        {/* Hint text */}
         <AnimatePresence>
           {images.length === 0 && (
             <motion.p

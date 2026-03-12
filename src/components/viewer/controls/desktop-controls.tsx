@@ -3,6 +3,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { Euler, Quaternion, MathUtils, Vector3 } from "three";
 
 import type { ViewerMode } from "@/lib/types/stores";
@@ -124,6 +125,30 @@ function ResetCameraOnKey({ mode }: { mode: ViewerMode }) {
   return null;
 }
 
+const MIN_FOV = 20;
+const MAX_FOV = 110;
+const ZOOM_SPEED = 0.05;
+
+function FovZoom() {
+  const { camera, gl, invalidate } = useThree();
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const cam = camera as THREE.PerspectiveCamera;
+      const delta = e.deltaY > 0 ? 1 : -1;
+      cam.fov = MathUtils.clamp(cam.fov + delta * cam.fov * ZOOM_SPEED, MIN_FOV, MAX_FOV);
+      cam.updateProjectionMatrix();
+      invalidate();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [camera, gl, invalidate]);
+
+  return null;
+}
+
 export function DesktopControls({ mode }: DesktopControlsProps) {
   const isSphere = SPHERE_MODES.includes(mode);
 
@@ -141,6 +166,7 @@ export function DesktopControls({ mode }: DesktopControlsProps) {
           touches={{ ONE: 1, TWO: 2 }}
           target={[0, 0, 0]}
         />
+        <FovZoom />
         <ArrowKeyRotation />
         <ResetCameraOnKey mode={mode} />
       </>

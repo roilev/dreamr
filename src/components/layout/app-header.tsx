@@ -517,7 +517,7 @@ export function AppHeader({
 
   if (overlay) {
     return (
-      <header className="flex items-center justify-between px-3 sm:px-5 pt-safe pt-3 sm:pt-4 pb-2">
+      <header className="flex items-center justify-between px-3 sm:px-5 pt-safe pt-5 sm:pt-6 pb-2">
         {/* Left: logo + nav on the same line */}
         <div className="flex items-baseline gap-3">
           {/* Logo */}

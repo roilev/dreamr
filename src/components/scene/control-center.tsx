@@ -711,32 +711,6 @@ export function ControlCenter({
           )}
         </AnimatePresence>
 
-        {/* Image tab controls: workflow + prompt mode + enhance */}
-        <AnimatePresence>
-          {activeTab === "image" && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 flex-wrap">
-                <WorkflowSelector value={workflow} onChange={setWorkflow} />
-                <PromptModeToggle value={promptMode} onChange={setPromptMode} />
-                <div className="flex-1" />
-                {equirectAsset && (
-                  <EnhanceButton
-                    sceneId={sceneId}
-                    canUpscale={hasRawVideo && !hasUpscaled}
-                    canDepth={hasAnyVisual && !isStepActive("depth")}
-                    isUpscaling={isStepActive("upscale")}
-                    isDepthGenerating={isStepActive("depth")}
-                    depthEnabled={depthEnabled}
-                    onToggleDepth={handleToggleDepth}
-                    onRunUpscale={handleRunUpscale}
-                    onRunDepth={handleRunDepth}
-                  />
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* References row */}
         <AnimatePresence>
           {renderReferences() && (
@@ -778,9 +752,47 @@ export function ControlCenter({
           )}
         </AnimatePresence>
 
-        {/* Submit */}
+        {/* Image tab controls: workflow + prompt mode + enhance (below prompt) */}
         <AnimatePresence>
-          {showSubmit && (
+          {activeTab === "image" && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 border-t border-white/5 flex-wrap">
+                <WorkflowSelector value={workflow} onChange={setWorkflow} />
+                <PromptModeToggle value={promptMode} onChange={setPromptMode} />
+                <div className="flex-1" />
+                {equirectAsset && (
+                  <EnhanceButton
+                    sceneId={sceneId}
+                    canUpscale={hasRawVideo && !hasUpscaled}
+                    canDepth={hasAnyVisual && !isStepActive("depth")}
+                    isUpscaling={isStepActive("upscale")}
+                    isDepthGenerating={isStepActive("depth")}
+                    depthEnabled={depthEnabled}
+                    onToggleDepth={handleToggleDepth}
+                    onRunUpscale={handleRunUpscale}
+                    onRunDepth={handleRunDepth}
+                  />
+                )}
+                <motion.button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit}
+                  whileHover={canSubmit ? { scale: 1.08 } : undefined}
+                  whileTap={canSubmit ? { scale: 0.95 } : undefined}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full transition-colors shrink-0",
+                    canSubmit ? "bg-[var(--text-primary)] text-[var(--bg-primary)]" : "bg-white/10 text-[var(--text-muted)] cursor-not-allowed",
+                  )}
+                >
+                  {isTabStepActive ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Submit (non-image tabs) */}
+        <AnimatePresence>
+          {showSubmit && activeTab !== "image" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-end px-4 pb-3 pt-1">
               <motion.button
                 onClick={handleSubmit}
