@@ -2,19 +2,18 @@ import { fal } from "./client";
 import type { NanoBanana2Input, NanoBanana2EditInput, NanoBanana2Output } from "./types";
 import { FAL_MODELS } from "@/lib/utils/constants";
 
-type AspectRatio = NanoBanana2Input["aspect_ratio"];
 type Resolution = NanoBanana2Input["resolution"];
 
 interface GenerateOptions {
   prompt: string;
-  aspectRatio?: AspectRatio;
+  aspectRatio?: string;
   resolution?: Resolution;
 }
 
 interface EditOptions {
   prompt: string;
   imageUrls: string[];
-  aspectRatio?: AspectRatio;
+  aspectRatio?: string;
   resolution?: Resolution;
 }
 

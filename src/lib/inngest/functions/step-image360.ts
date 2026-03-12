@@ -71,7 +71,7 @@ export const stepImage360 = inngest.createFunction(
           referenceUrls.push(urlData.publicUrl);
           inputSlots.push({
             index: i,
-            slot: (input as Record<string, unknown>).slot as string || "front",
+            slot: ((input as unknown as Record<string, unknown>).slot as string) || "front",
           });
         }
       }
@@ -107,11 +107,11 @@ export const stepImage360 = inngest.createFunction(
         ? await editImage({
             prompt: generatePrompt,
             imageUrls: referenceUrls,
-            aspectRatio: config.generateAspectRatio as "21:9" | "4:1",
+            aspectRatio: config.generateAspectRatio,
           })
         : await generateImage({
             prompt: generatePrompt,
-            aspectRatio: config.generateAspectRatio as "21:9" | "4:1",
+            aspectRatio: config.generateAspectRatio,
           });
 
       const rawImage = genResult.images[0];

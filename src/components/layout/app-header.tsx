@@ -356,12 +356,15 @@ function DebugTab({
                   </span>
                 </div>
                 {job.model_id && <KV label="Model" value={job.model_id.split("/").pop() ?? job.model_id} />}
-                {(job.input_metadata as Record<string, unknown> | null)?.workflow && (
-                  <KV label="Workflow" value={String((job.input_metadata as Record<string, unknown>).workflow)} />
-                )}
-                {(job.input_metadata as Record<string, unknown> | null)?.prompt_mode && (
-                  <KV label="Mode" value={String((job.input_metadata as Record<string, unknown>).prompt_mode)} />
-                )}
+                {(() => {
+                  const meta = job.input_metadata as Record<string, unknown> | null;
+                  return (
+                    <>
+                      {meta?.workflow && <KV label="Workflow" value={String(meta.workflow)} />}
+                      {meta?.prompt_mode && <KV label="Mode" value={String(meta.prompt_mode)} />}
+                    </>
+                  );
+                })()}
                 {job.provider_request_id && (
                   <KV label="Req ID" value={job.provider_request_id.slice(0, 16) + "..."} copy />
                 )}

@@ -3,7 +3,7 @@ export interface NanoBanana2Input {
   prompt: string;
   num_images?: number;
   seed?: number;
-  aspect_ratio?: "auto" | "21:9" | "16:9" | "3:2" | "4:3" | "5:4" | "1:1" | "4:5" | "3:4" | "2:3" | "9:16";
+  aspect_ratio?: string;
   output_format?: "png" | "jpeg" | "webp";
   safety_tolerance?: "1" | "2" | "3" | "4" | "5" | "6";
   resolution?: "0.5K" | "1K" | "2K" | "4K";
@@ -18,7 +18,7 @@ export interface NanoBanana2EditInput {
   image_urls: string[];
   num_images?: number;
   seed?: number;
-  aspect_ratio?: "auto" | "21:9" | "16:9" | "3:2" | "4:3" | "5:4" | "1:1" | "4:5" | "3:4" | "2:3" | "9:16";
+  aspect_ratio?: string;
   output_format?: "png" | "jpeg" | "webp";
   safety_tolerance?: "1" | "2" | "3" | "4" | "5" | "6";
   resolution?: "0.5K" | "1K" | "2K" | "4K";
