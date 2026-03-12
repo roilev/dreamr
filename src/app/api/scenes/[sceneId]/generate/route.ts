@@ -49,6 +49,10 @@ export async function POST(
       userId: user.id,
     };
 
+    if (step === "image_360") {
+      eventData.workflow = body.options?.workflow ?? "equirect";
+      eventData.promptMode = body.options?.promptMode ?? "precise";
+    }
     if (step === "video" && body.options?.veoModel) {
       eventData.veoModel = body.options.veoModel;
     }
