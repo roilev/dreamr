@@ -22,6 +22,12 @@ export const metadata: Metadata = {
   title: "Dreamr — Build Immersive Worlds",
   description:
     "Create explorable 3D worlds from text and images with AI-powered generation.",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    viewportFit: "cover",
+  },
 };
 
 export default function RootLayout({

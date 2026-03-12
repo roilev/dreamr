@@ -40,7 +40,7 @@ export default function SceneEditorPage({
   }, []);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <div className="relative w-screen overflow-hidden" style={{ height: "100dvh" }}>
       {/* Canvas fills everything */}
       <div className="absolute inset-0">
         <ErrorBoundary>
