@@ -13,6 +13,8 @@ import { InputCanvasView } from "./input-canvas-view";
 import { Loader2, ImagePlus, Minus, Plus } from "lucide-react";
 import { SplatWorld } from "./splat-world";
 import { PlatformControls } from "./controls";
+import { GenerationLoading } from "./generation-loading";
+import { InputSlotGrid, type SlotImage, type SlotPosition } from "./input-slot-grid";
 import { NoToneMapping } from "three";
 import type { ViewerMode, ViewerInputImage } from "@/lib/types/stores";
 
@@ -318,6 +320,27 @@ function LoadingFallback() {
 }
 
 
+function positionToSlot(lng: number, lat: number): SlotPosition {
+  if (lat > 45) return "top";
+  if (lat < -45) return "bottom";
+  const norm = ((lng % 360) + 360) % 360;
+  if (norm < 45 || norm >= 315) return "front";
+  if (norm >= 45 && norm < 135) return "right";
+  if (norm >= 135 && norm < 225) return "back";
+  return "left";
+}
+
+function slotToPosition(slot: SlotPosition): { lng: number; lat: number } {
+  switch (slot) {
+    case "front": return { lng: 0, lat: 0 };
+    case "right": return { lng: 90, lat: 0 };
+    case "back": return { lng: 180, lat: 0 };
+    case "left": return { lng: -90, lat: 0 };
+    case "top": return { lng: 0, lat: 70 };
+    case "bottom": return { lng: 0, lat: -70 };
+  }
+}
+
 export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
   const { inputImages } = useViewerStore();
 
@@ -333,7 +356,7 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
   }
 
   if (mode === "loading") {
-    return <LoadingFallback />;
+    return <GenerationLoading />;
   }
 
   if (mode === "splat") {
@@ -341,18 +364,28 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
   }
 
   if (mode === "input_canvas") {
-    if (inputImages.length === 0) {
-      return (
-        <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-          <div className="flex flex-col items-center gap-2">
-            <ImagePlus size={32} className="text-[var(--text-muted)]" />
-            <span>Drop images onto the canvas to position them</span>
-          </div>
-        </div>
-      );
-    }
+    const slotImages: SlotImage[] = inputImages.map((img) => ({
+      id: img.id,
+      url: img.url,
+      slot: (positionToSlot(img.longitude, img.latitude)) as SlotPosition,
+    }));
 
-    return <InputCanvasWithControls inputImages={inputImages} />;
+    return (
+      <InputSlotGrid
+        images={slotImages}
+        onRemoveImage={(id) => {
+          const updated = inputImages.filter((img) => img.id !== id);
+          useViewerStore.getState().setInputImages(updated);
+        }}
+        onMoveImage={(id, toSlot) => {
+          const { lng, lat } = slotToPosition(toSlot);
+          const updated = inputImages.map((img) =>
+            img.id === id ? { ...img, longitude: lng, latitude: lat } : img,
+          );
+          useViewerStore.getState().setInputImages(updated);
+        }}
+      />
+    );
   }
 
   return (
