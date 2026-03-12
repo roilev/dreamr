@@ -127,8 +127,14 @@ function ResetCameraOnKey({ mode }: { mode: ViewerMode }) {
 
 const MIN_FOV = 20;
 const MAX_FOV = 110;
-const ZOOM_SPEED = 0.05;
+const ZOOM_SENSITIVITY = 0.002;
 
+/**
+ * FOV-based zoom for sphere modes. Uses capture-phase listener on the
+ * canvas element so it fires before OrbitControls can swallow the event.
+ * Trackpad two-finger scroll and mouse wheel both produce wheel events
+ * with varying deltaY magnitudes, so we scale proportionally.
+ */
 function FovZoom() {
   const { camera, gl, invalidate } = useThree();
 
@@ -136,14 +142,15 @@ function FovZoom() {
     const el = gl.domElement;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      e.stopImmediatePropagation();
       const cam = camera as THREE.PerspectiveCamera;
-      const delta = e.deltaY > 0 ? 1 : -1;
-      cam.fov = MathUtils.clamp(cam.fov + delta * cam.fov * ZOOM_SPEED, MIN_FOV, MAX_FOV);
+      const newFov = cam.fov * (1 + e.deltaY * ZOOM_SENSITIVITY);
+      cam.fov = MathUtils.clamp(newFov, MIN_FOV, MAX_FOV);
       cam.updateProjectionMatrix();
       invalidate();
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    el.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => el.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
   }, [camera, gl, invalidate]);
 
   return null;
