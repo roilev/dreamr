@@ -71,7 +71,7 @@ export function VideoSphere({ url }: { url: string }) {
 
   return (
     <mesh scale={[-1, 1, 1]}>
-      <sphereGeometry args={[50, 64, 32]} />
+      <sphereGeometry args={[50, 128, 64]} />
       <meshBasicMaterial map={texture} side={BackSide} />
     </mesh>
   );

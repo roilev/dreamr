@@ -6,10 +6,13 @@ import { ImagePlus, X, Loader2, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { SceneInputRow } from "@/lib/supabase/types";
 import { useScene } from "@/hooks/use-scene";
+import { detectEquirectangular } from "@/lib/utils/detect-equirect";
+import { toast } from "sonner";
 
 async function uploadFile(
   file: File,
   sceneId: string,
+  bucket: "scene-inputs" | "generated-assets" = "scene-inputs",
 ): Promise<{ storagePath: string }> {
   const path = `${sceneId}/${Date.now()}-${file.name}`;
 
@@ -19,7 +22,7 @@ async function uploadFile(
     body: JSON.stringify({
       fileName: file.name,
       contentType: file.type,
-      bucket: "scene-inputs",
+      bucket,
       path,
     }),
   });
@@ -55,6 +58,26 @@ async function addInput(
   return res.json();
 }
 
+async function addEquirectAsset(
+  sceneId: string,
+  storagePath: string,
+  width: number,
+  height: number,
+) {
+  const res = await fetch(`/api/scenes/${sceneId}/assets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "equirect_image",
+      storage_path: storagePath,
+      width,
+      height,
+    }),
+  });
+  if (!res.ok) throw new Error("Failed to create equirect asset");
+  return res.json();
+}
+
 export function InputPanel({ sceneId }: { sceneId: string }) {
   const { data: scene } = useScene(sceneId);
   const queryClient = useQueryClient();
@@ -72,8 +95,18 @@ export function InputPanel({ sceneId }: { sceneId: string }) {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           if (!file.type.startsWith("image/")) continue;
-          const { storagePath } = await uploadFile(file, sceneId);
-          await addInput(sceneId, storagePath, imageInputs.length + i);
+
+          const detection = await detectEquirectangular(file);
+
+          if (detection.isEquirect) {
+            const uploadTarget = detection.normalizedFile ?? file;
+            const { storagePath } = await uploadFile(uploadTarget, sceneId, "generated-assets");
+            await addEquirectAsset(sceneId, storagePath, detection.width, detection.height);
+            toast.success("360° image detected — projecting as panorama");
+          } else {
+            const { storagePath } = await uploadFile(file, sceneId);
+            await addInput(sceneId, storagePath, imageInputs.length + i);
+          }
         }
         queryClient.invalidateQueries({ queryKey: ["scene", sceneId] });
       } catch (err) {

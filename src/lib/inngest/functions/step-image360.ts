@@ -1,9 +1,9 @@
 import { inngest } from "../client";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { generate360Image, edit360Image, EQUIRECT_TEXT_PROMPT, EQUIRECT_SINGLE_IMAGE_PROMPT, EQUIRECT_COMPOSITE_PROMPT } from "@/lib/fal/nano-banana";
+import { generate360Image, edit360Image, fillEquirectPoles, EQUIRECT_TEXT_PROMPT, EQUIRECT_SINGLE_IMAGE_PROMPT, EQUIRECT_COMPOSITE_PROMPT } from "@/lib/fal/nano-banana";
 import { SUPABASE_BUCKETS, FAL_MODELS } from "@/lib/utils/constants";
 import { downloadAndUploadBuffer, createJob, completeJob, failJob, createAsset, updateScene, logGenerationStart, logGenerationComplete } from "./helpers";
-import { compositeEquirect, resizeToEquirect } from "@/lib/utils/equirect-composite";
+import { compositeEquirect, resizeToEquirect, letterboxToEquirect } from "@/lib/utils/equirect-composite";
 import type { SceneRow, SceneInputRow } from "@/lib/supabase/types";
 
 export const stepImage360 = inngest.createFunction(
@@ -97,11 +97,38 @@ export const stepImage360 = inngest.createFunction(
           result = await generate360Image(textPrompt);
         }
 
-        const imageUrl = result.images[0].url;
+        const rawImage = result.images[0];
+        const imageUrl = rawImage.url;
+        const rawDims = { width: rawImage.width, height: rawImage.height };
+        console.log(`[step-image360] Raw fal.ai output: ${rawDims.width}x${rawDims.height}`);
 
         const rawResponse = await fetch(imageUrl);
         const rawBuffer = Buffer.from(await rawResponse.arrayBuffer());
-        const equirectBuffer = await resizeToEquirect(rawBuffer);
+
+        // Double-pass pole fill: if the raw output is not 2:1, letterbox to 2:1
+        // and use the edit endpoint to inpaint the black pole regions.
+        const rawRatio = (rawDims.width ?? 0) / (rawDims.height ?? 1);
+        const needsPoleFill = Math.abs(rawRatio - 2) > 0.05;
+        let equirectBuffer: Buffer;
+
+        if (needsPoleFill) {
+          console.log(`[step-image360] Non-2:1 output (${rawRatio.toFixed(3)}), running double-pass pole fill`);
+          const letterboxed = await letterboxToEquirect(rawBuffer);
+          const letterboxPath = `${userId}/${sceneId}/letterboxed_${job.id}.png`;
+          const { publicUrl: letterboxUrl } = await downloadAndUploadBuffer(
+            letterboxed,
+            SUPABASE_BUCKETS.GENERATED_ASSETS,
+            letterboxPath,
+          );
+
+          const poleFillResult = await fillEquirectPoles(letterboxUrl, prompt || undefined);
+          const poleFillUrl = poleFillResult.images[0].url;
+          const poleFillResponse = await fetch(poleFillUrl);
+          const poleFillBuffer = Buffer.from(await poleFillResponse.arrayBuffer());
+          equirectBuffer = await resizeToEquirect(poleFillBuffer);
+        } else {
+          equirectBuffer = await resizeToEquirect(rawBuffer);
+        }
 
         const storagePath = `${userId}/${sceneId}/equirect_${job.id}.png`;
         const supabaseAdmin = createAdminSupabase();
@@ -123,7 +150,11 @@ export const stepImage360 = inngest.createFunction(
           height: 2048,
         });
 
-        await completeJob(job.id, { description: result.description });
+        await completeJob(job.id, {
+          description: result.description,
+          raw_dimensions: rawDims,
+          used_pole_fill: needsPoleFill,
+        });
         await logGenerationComplete(logId, "completed", Date.now() - startTime, { description: result.description });
         await updateScene(sceneId, { status: "completed", current_step: null });
         return { success: true };

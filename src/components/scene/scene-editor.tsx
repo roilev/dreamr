@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import { useSceneWorld } from "@/hooks/use-world";
 import { ModeTransition } from "@/components/viewer/mode-transition";
+import { detectEquirectangular } from "@/lib/utils/detect-equirect";
 import type { SceneInputRow } from "@/lib/supabase/types";
 import type { ViewerInputImage } from "@/lib/types/stores";
 
@@ -259,17 +260,24 @@ export function SceneEditor({
       setUploadingCount(files.length);
 
       let successCount = 0;
+      let equirectCount = 0;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
+          const detection = await detectEquirectangular(file);
+          const uploadTarget = detection.isEquirect
+            ? (detection.normalizedFile ?? file)
+            : file;
+          const bucket = detection.isEquirect ? "generated-assets" : "scene-inputs";
           const path = `${sceneId}/${Date.now()}-${file.name}`;
+
           const uploadRes = await fetch("/api/upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               fileName: file.name,
-              contentType: file.type,
-              bucket: "scene-inputs",
+              contentType: uploadTarget.type,
+              bucket,
               path,
             }),
           });
@@ -277,18 +285,34 @@ export function SceneEditor({
           const { signedUrl, storagePath } = await uploadRes.json();
           await fetch(signedUrl, {
             method: "PUT",
-            headers: { "Content-Type": file.type },
-            body: file,
+            headers: { "Content-Type": uploadTarget.type },
+            body: uploadTarget,
           });
-          await fetch(`/api/scenes/${sceneId}/inputs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "image",
-              storage_path: storagePath,
-              sort_order: i,
-            }),
-          });
+
+          if (detection.isEquirect) {
+            const assetRes = await fetch(`/api/scenes/${sceneId}/assets`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "equirect_image",
+                storage_path: storagePath,
+                width: detection.width,
+                height: detection.height,
+              }),
+            });
+            if (!assetRes.ok) throw new Error("Failed to create equirect asset");
+            equirectCount++;
+          } else {
+            await fetch(`/api/scenes/${sceneId}/inputs`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "image",
+                storage_path: storagePath,
+                sort_order: i,
+              }),
+            });
+          }
           successCount++;
         } catch {
           toast.error(`Failed to upload "${file.name}"`);
@@ -298,9 +322,13 @@ export function SceneEditor({
       }
 
       if (successCount > 0) {
-        toast.success(
-          `${successCount} image${successCount > 1 ? "s" : ""} added`,
-        );
+        if (equirectCount > 0) {
+          toast.success("360° image detected — projecting as panorama");
+        } else {
+          toast.success(
+            `${successCount} image${successCount > 1 ? "s" : ""} added`,
+          );
+        }
         await queryClient.invalidateQueries({ queryKey: ["scene", sceneId] });
       }
     },

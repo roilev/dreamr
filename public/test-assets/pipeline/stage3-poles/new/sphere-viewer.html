@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Equirect Sphere Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #111; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #info {
+    position: fixed; top: 16px; left: 16px; color: #fff; font-size: 13px;
+    background: rgba(0,0,0,0.6); padding: 10px 14px; border-radius: 8px;
+    pointer-events: none; z-index: 10;
+  }
+  #controls {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10;
+    background: rgba(0,0,0,0.7); padding: 12px 20px; border-radius: 10px;
+    backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 8px;
+    min-width: 400px;
+  }
+  #controls label {
+    color: #fff; font-size: 13px; display: flex; align-items: center; gap: 10px;
+  }
+  #controls input[type="range"] { flex: 1; accent-color: #4af; }
+  #controls .value { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  #toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 10;
+    background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    backdrop-filter: blur(8px);
+  }
+  #toggle:hover { background: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<div id="info">Drag to look around · Scroll to zoom</div>
+<button id="toggle">Switch to: Original (no poles)</button>
+<div id="controls">
+  <label>
+    Vertical correction
+    <input type="range" id="strength" min="-0.15" max="0.15" step="0.001" value="0">
+    <span class="value" id="strengthVal">0.000</span>
+  </label>
+  <label>
+    Correction shape
+    <input type="range" id="power" min="1" max="4" step="0.1" value="2">
+    <span class="value" id="powerVal">sin(2θ)</span>
+  </label>
+</div>
+<script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 0.01);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const vertexShader = `
+  varying vec3 vWorldDir;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldDir = worldPos.xyz - cameraPosition;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const fragmentShader = `
+  uniform sampler2D tEquirect;
+  uniform float uStrength;
+  uniform float uPower;
+  varying vec3 vWorldDir;
+
+  #define PI 3.14159265359
+
+  void main() {
+    vec3 dir = normalize(vWorldDir);
+
+    float lng = atan(-dir.z, -dir.x);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+
+    // Apply vertical correction: lat += strength * sin(power * lat)
+    // power=2 gives sin(2*lat) which is zero at poles and equator, max at 45°
+    // power=1 gives sin(lat) which is zero at equator, max at poles
+    float correction = uStrength * sin(uPower * lat);
+    lat = clamp(lat + correction, -PI * 0.5, PI * 0.5);
+
+    float u = (lng + PI) / (2.0 * PI);
+    float v = 1.0 - (PI * 0.5 - lat) / PI;
+
+    gl_FragColor = texture2D(tEquirect, vec2(u, v));
+  }
+`;
+
+const loader = new THREE.TextureLoader();
+const texReprojected = loader.load('./equirect-reprojected.png');
+texReprojected.colorSpace = THREE.SRGBColorSpace;
+const texOriginal = loader.load('../../stage2-seams/flash-unshifted.png');
+texOriginal.colorSpace = THREE.SRGBColorSpace;
+
+const uniforms = {
+  tEquirect: { value: texReprojected },
+  uStrength: { value: 0.0 },
+  uPower: { value: 2.0 },
+};
+
+const geo = new THREE.SphereGeometry(50, 64, 32);
+geo.scale(-1, 1, 1);
+const mat = new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader });
+const sphere = new THREE.Mesh(geo, mat);
+scene.add(sphere);
+
+let showingReprojected = true;
+document.getElementById('toggle').addEventListener('click', () => {
+  showingReprojected = !showingReprojected;
+  uniforms.tEquirect.value = showingReprojected ? texReprojected : texOriginal;
+  document.getElementById('toggle').textContent =
+    showingReprojected ? 'Switch to: Original (no poles)' : 'Switch to: Reprojected (with poles)';
+});
+
+const strengthSlider = document.getElementById('strength');
+const strengthVal = document.getElementById('strengthVal');
+strengthSlider.addEventListener('input', () => {
+  const v = parseFloat(strengthSlider.value);
+  uniforms.uStrength.value = v;
+  strengthVal.textContent = v.toFixed(3);
+});
+
+const powerSlider = document.getElementById('power');
+const powerVal = document.getElementById('powerVal');
+powerSlider.addEventListener('input', () => {
+  const v = parseFloat(powerSlider.value);
+  uniforms.uPower.value = v;
+  const labels = { 1: 'sin(θ)', 2: 'sin(2θ)', 3: 'sin(3θ)', 4: 'sin(4θ)' };
+  powerVal.textContent = labels[v] || `sin(${v.toFixed(1)}θ)`;
+});
+
+let isDragging = false, prevX = 0, prevY = 0;
+let lon = 0, lat = 0;
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  isDragging = true; prevX = e.clientX; prevY = e.clientY;
+});
+window.addEventListener('pointermove', e => {
+  if (!isDragging) return;
+  lon -= (e.clientX - prevX) * 0.25;
+  lat += (e.clientY - prevY) * 0.25;
+  lat = Math.max(-85, Math.min(85, lat));
+  prevX = e.clientX; prevY = e.clientY;
+});
+window.addEventListener('pointerup', () => isDragging = false);
+
+renderer.domElement.addEventListener('wheel', e => {
+  camera.fov = Math.max(30, Math.min(110, camera.fov + e.deltaY * 0.05));
+  camera.updateProjectionMatrix();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  const phi = THREE.MathUtils.degToRad(90 - lat);
+  const theta = THREE.MathUtils.degToRad(lon);
+  camera.lookAt(
+    50 * Math.sin(phi) * Math.cos(theta),
+    50 * Math.cos(phi),
+    50 * Math.sin(phi) * Math.sin(theta)
+  );
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

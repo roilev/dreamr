@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>360 Panorama Workflows</title>
+<style>
+:root {
+  --bg: #0b1020; --panel: #111830; --text: #e8edff; --muted: #8a96bc;
+  --accent: #5b8cff; --accent2: #5ce0a8; --border: #1e2d55; --hover: #182247;
+  --gemini: #a78bfa; --gemini-bg: rgba(167,139,250,.06); --gemini-border: rgba(167,139,250,.2);
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0 }
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+header h1 { font-size: 16px; font-weight: 600; }
+.tabs { display: flex; gap: 2px; background: rgba(255,255,255,.05); border-radius: 8px; padding: 2px; }
+.tabs button { background: none; border: none; color: var(--muted); padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.tabs button.active { background: var(--accent); color: #fff; }
+.tabs button:not(.active):hover { color: var(--text); }
+
+.content { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 240px; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; padding: 12px; }
+.main-area { flex: 1; overflow-y: auto; padding: 20px; }
+
+.step-nav { display: flex; flex-direction: column; gap: 4px; }
+.step-btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 1px solid transparent; color: var(--muted); padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.step-btn:hover { background: var(--hover); color: var(--text); }
+.step-btn.active { border-color: var(--accent); color: var(--text); background: rgba(91,140,255,.08); }
+.step-btn.done { color: var(--accent2); }
+.step-btn.gemini { color: var(--gemini); }
+.step-btn.gemini.active { border-color: var(--gemini); background: var(--gemini-bg); }
+.step-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.06); font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.step-btn.active .step-num { background: var(--accent); color: #fff; }
+.step-btn.gemini.active .step-num { background: var(--gemini); color: #fff; }
+.step-btn.done .step-num { background: var(--accent2); color: #0b1020; }
+
+.step-content { max-width: 960px; }
+.step-content h2 { font-size: 17px; margin-bottom: 2px; }
+.step-content .desc { color: var(--muted); margin-bottom: 10px; line-height: 1.4; font-size: 13px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
+.card h3 { font-size: 13px; margin-bottom: 6px; }
+
+.gemini-card { border-color: var(--gemini-border); background: var(--gemini-bg); }
+.gemini-card h3 { color: var(--gemini); }
+.gemini-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 2px 8px; border-radius: 99px; background: rgba(167,139,250,.12); color: var(--gemini); border: 1px solid var(--gemini-border); font-weight: 600; }
+.gemini-settings { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.gemini-settings > div { flex: 1; min-width: 100px; }
+.gemini-settings select { padding: 5px 8px; }
+.setting-val { padding: 5px 8px; background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 12px; text-align: center; cursor: pointer; transition: border-color .2s; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); }
+.upload-zone input { display: none; }
+.upload-zone p { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.preview-img { max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid var(--border); margin-top: 6px; display: block; }
+.preview-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.preview-row > div { flex: 1; min-width: 180px; }
+
+label.field { display: block; font-size: 11px; color: var(--muted); margin: 6px 0 3px; text-transform: uppercase; letter-spacing: .5px; }
+textarea, input[type="text"], select {
+  width: 100%; background: rgba(0,0,0,.3); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical;
+}
+textarea { min-height: 50px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-row input { flex: 1; }
+.range-val { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+
+.btn { background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 7px; cursor: pointer; font-size: 12px; }
+.btn:hover { background: var(--hover); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { opacity: .9; }
+.btn-gemini { background: rgba(167,139,250,.15); border-color: var(--gemini-border); color: var(--gemini); }
+.btn-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+
+details.prompt-details { margin-top: 4px; }
+details.prompt-details summary { cursor: pointer; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; user-select: none; padding: 4px 0; }
+details.prompt-details summary:hover { color: var(--text); }
+details.prompt-details[open] summary { margin-bottom: 4px; }
+
+#sphere-container { width: 100%; height: 360px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); position: relative; background: #000; }
+#sphere-container canvas { width: 100% !important; height: 100% !important; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid-2-tight { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+.hidden { display: none; }
+.tag { font-size: 10px; padding: 2px 7px; border-radius: 99px; background: rgba(91,140,255,.15); color: var(--accent); border: 1px solid rgba(91,140,255,.2); }
+.tag-gemini { background: rgba(167,139,250,.12); color: var(--gemini); border-color: var(--gemini-border); }
+.sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+.loading { opacity: .5; pointer-events: none; }
+.asset-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 11px; cursor: pointer; text-decoration: underline; }
+.subsection { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.subsection:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.inline-io { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+@media (max-width: 768px) { .sidebar { display: none; } .grid-2, .grid-2-tight, .inline-io { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>360 Panorama Workflows</h1>
+    <div class="tabs" id="workflowTabs"></div>
+    <div style="flex:1"></div>
+    <button class="btn" id="exportBtn">Export Session</button>
+  </header>
+  <div class="content">
+    <div class="sidebar">
+      <div class="step-nav" id="stepNav"></div>
+    </div>
+    <div class="main-area">
+      <div class="step-content" id="stepContent"></div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ═══════════ STATE ═══════════ */
+const state = {
+  workflow: 'a',
+  stepIndex: 0,
+  assets: {},
+  params: {
+    a_s1_model: 'flash', a_s1_res: '2k',
+    a_s2_model: 'flash', a_s2_res: '2k',
+    a_s3top_model: 'flash', a_s3top_res: '2k',
+    a_s3bot_model: 'flash', a_s3bot_res: '2k',
+    a_stripMode: 'white', a_stripWidth: 10, a_poleFov: 120, a_featherDeg: 3, a_vertCorrection: 0, a_vertPower: 2,
+    b_s1_model: 'flash', b_s1_res: '2k',
+    b_seam_model: 'flash', b_seam_res: '2k',
+    b_comp_model: 'flash', b_comp_res: '2k',
+    b_stripMode: 'white', b_stripWidth: 10, b_vertCoverage: 75, b_captureFov: 120, b_captureYaw: -15,
+  },
+  prompts: {},
+};
+
+const ASSET_BASE = '/test-assets/workflow-assets/';
+const ASSET_MANIFEST = {
+  a: {
+    a_ref:              'a/1-ref.png',
+    a_s1_output:        'a/2-equirect.png',
+    a_s2_crop:          'a/3-seam-crop.png',
+    a_s2_gemini_result: 'a/3-inpainted.png',
+    a_s2_output:        'a/3-seam-fixed.png',
+    a_letterboxed:      'a/4-letterboxed.png',
+    a_pole_top:         'a/5-pole-top.png',
+    a_pole_bottom:      'a/5-pole-bottom.png',
+    a_s3_filled_top:    'a/6-filled-top.png',
+    a_s3_filled_bottom: 'a/6-filled-bottom.png',
+    a_final:            'a/7-final.png',
+  },
+  b: {
+    b_ref:              'b/1-ref.png',
+    b_s1_output:        'b/2-strip.png',
+    b_s2_crop:          'b/3-seam-crop.png',
+    b_s2_gemini_result: 'b/3-inpainted.png',
+    b_s2_output:        'b/3-seam-fixed.png',
+    b_wrapped:          'b/4-wrapped.png',
+    b_capture_top:      'b/5-capture-top.png',
+    b_capture_bottom:   'b/5-capture-bottom.png',
+    b_filled_top:       'b/6-filled-top.png',
+    b_filled_bottom:    'b/6-filled-bottom.png',
+    b_final:            'b/7-final.png',
+  }
+};
+
+async function autoLoadAssets() {
+  for (const [wfKey, entries] of Object.entries(ASSET_MANIFEST)) {
+    const loads = Object.entries(entries).map(async ([assetKey, relPath]) => {
+      const url = ASSET_BASE + relPath;
+      try {
+        const r = await fetch(url, { method: 'HEAD' });
+        if (r.ok) await loadAssetFromURL(assetKey, url, relPath.split('/').pop());
+      } catch(e) {}
+    });
+    await Promise.all(loads);
+  }
+  render();
+}
+
+/* ═══════════ WORKFLOW DEFINITIONS ═══════════ */
+const workflows = {
+  a: {
+    name: '21:9 Equirect + Pole Inpaint',
+    steps: [
+      { id: 'a_ref',       title: 'Reference Image',    render: renderA_ref },
+      { id: 'a_generate',  title: 'Generate Equirect',  render: renderA_generate,  gemini: true },
+      { id: 'a_seam',      title: 'Seam Fix',           render: renderA_seam,      gemini: true },
+      { id: 'a_letterbox',  title: 'Letterbox to 2:1',  render: renderA_letterbox },
+      { id: 'a_poles',     title: 'Render Pole Views',  render: renderA_poles },
+      { id: 'a_fill_poles', title: 'Fill Poles',        render: renderA_fillPoles, gemini: true },
+      { id: 'a_reproject', title: 'Reproject & Preview', render: renderA_reproject },
+    ]
+  },
+  b: {
+    name: '4:1 Strip + Hero Capture',
+    steps: [
+      { id: 'b_ref',       title: 'Reference Image',    render: renderB_ref },
+      { id: 'b_generate',  title: 'Generate 4:1 Strip', render: renderB_generate,  gemini: true },
+      { id: 'b_seam',      title: 'Seam Fix',           render: renderB_seam,      gemini: true },
+      { id: 'b_wrap',      title: 'Wrap & Configure',   render: renderB_wrap },
+      { id: 'b_capture',   title: 'Hero Capture',       render: renderB_capture },
+      { id: 'b_complete',  title: 'Complete Capture',   render: renderB_complete,  gemini: true },
+      { id: 'b_reproject', title: 'Reproject & Preview', render: renderB_reproject },
+    ]
+  }
+};
+
+/* ═══════════ RENDERING ENGINE ═══════════ */
+function render() {
+  const wf = workflows[state.workflow];
+  document.getElementById('workflowTabs').innerHTML = Object.entries(workflows).map(([k, v]) =>
+    `<button class="${k === state.workflow ? 'active' : ''}" onclick="window._switchWF('${k}')">${v.name}</button>`
+  ).join('');
+
+  document.getElementById('stepNav').innerHTML = wf.steps.map((s, i) => {
+    const done = state.assets[s.id + '_output'] || state.assets[s.id];
+    const cls = [
+      'step-btn',
+      i === state.stepIndex ? 'active' : '',
+      done ? 'done' : '',
+      s.gemini ? 'gemini' : ''
+    ].filter(Boolean).join(' ');
+    return `<button class="${cls}" onclick="window._goStep(${i})">
+      <span class="step-num">${i + 1}</span><span>${s.title}${s.gemini ? ' ✦' : ''}</span>
+    </button>`;
+  }).join('');
+
+  const step = wf.steps[state.stepIndex];
+  document.getElementById('stepContent').innerHTML = step.render();
+  bindUploads();
+}
+
+window._render = () => render();
+window._switchWF = (k) => { state.workflow = k; state.stepIndex = 0; render(); };
+window._goStep = (i) => { state.stepIndex = i; render(); };
+
+/* ═══════════ REUSABLE COMPONENTS ═══════════ */
+function storeAsset(key, file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        state.assets[key] = { name: file.name, url: reader.result, width: img.width, height: img.height };
+        resolve(state.assets[key]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadAssetFromURL(key, url, name) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      state.assets[key] = { name, url, width: img.width, height: img.height };
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
+function uploadHTML(key, label) {
+  const asset = state.assets[key];
+  if (asset) {
+    return `<div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span class="tag">${asset.name} (${asset.width}x${asset.height})</span>
+        <button class="btn" onclick="window._download('${key}','${asset.name}')">Download</button>
+        <div class="upload-zone" data-key="${key}" style="padding:3px 10px;border-radius:6px;display:inline-block;margin:0">
+          <input type="file" accept="image/*"><span style="font-size:11px;color:var(--muted);cursor:pointer">Replace</span>
+        </div>
+      </div>
+      <img class="preview-img" src="${asset.url}">
+    </div>`;
+  }
+  return `<div class="upload-zone" data-key="${key}" style="padding:14px">
+    <input type="file" accept="image/*">
+    <strong style="font-size:12px">${label}</strong>
+    <p>Drop or click</p>
+  </div>`;
+}
+
+function assetPreview(key, label) {
+  const asset = state.assets[key];
+  if (!asset) return `<div style="color:var(--muted);font-size:12px">${label}: not available</div>`;
+  return `<div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span class="tag">${label}: ${asset.name} (${asset.width}x${asset.height})</span>
+      <button class="btn" onclick="window._download('${key}','${asset.name}')">Download</button>
+    </div>
+    <img class="preview-img" src="${asset.url}">
+  </div>`;
+}
+
+function geminiSettingsHTML(modelKey, resKey, aspectRatio) {
+  const model = state.params[modelKey] || 'flash';
+  const res = state.params[resKey] || '2k';
+  return `<div class="card gemini-card" style="padding:8px 12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="gemini-badge">✦ Gemini</span>
+      <select style="width:auto;padding:4px 6px;font-size:11px" onchange="window._setParam('${modelKey}', this.value)">
+        <option value="flash" ${model==='flash'?'selected':''}>Flash</option>
+        <option value="pro" ${model==='pro'?'selected':''}>Pro</option>
+      </select>
+      <span style="font-size:11px;color:var(--muted)">AR: <strong style="color:var(--text)">${aspectRatio}</strong></span>
+      <select style="width:auto;padding:4px 6px;font-size:11px" onchange="window._setParam('${resKey}', this.value)">
+        <option value="1k" ${res==='1k'?'selected':''}>1k</option>
+        <option value="2k" ${res==='2k'?'selected':''}>2k</option>
+      </select>
+    </div>
+  </div>`;
+}
+
+function promptHTML(key, defaultText, label) {
+  if (!state.prompts[key]) state.prompts[key] = defaultText;
+  const text = state.prompts[key];
+  return `<label class="field">${label}</label>
+    <div class="prompt-box" onclick="window._copyPrompt(this)">${escapeHTML(text)}</div>`;
+}
+
+function editablePromptHTML(key, defaultText, label) {
+  if (!state.prompts[key]) state.prompts[key] = defaultText;
+  return `<details class="prompt-details" ${state._openPrompts?.[key] ? 'open' : ''}>
+    <summary onclick="if(!state._openPrompts)state._openPrompts={};state._openPrompts['${key}']=!this.parentElement.open">${label}</summary>
+    <textarea id="prompt_${key}" style="min-height:60px" oninput="window._savePrompt('${key}', this.value)">${escapeHTML(state.prompts[key])}</textarea>
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn" onclick="window._copyFromTextarea('prompt_${key}')">Copy</button>
+      <button class="btn" onclick="state.prompts['${key}']='${escapeHTML(defaultText).replace(/'/g, "\\'")}'; render();">Reset</button>
+    </div>
+  </details>`;
+}
+
+function paramSlider(key, label, min, max, step, suffix = '') {
+  const val = state.params[key];
+  return `<label class="field">${label}</label>
+    <div class="range-row">
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+        oninput="window._setParam('${key}', +this.value); this.nextElementSibling.textContent=this.value+'${suffix}'">
+      <span class="range-val">${val}${suffix}</span>
+    </div>`;
+}
+
+function stripModeSelector(modeKey, widthKey) {
+  const val = state.params[modeKey] || 'none';
+  const modes = [
+    { id: 'none', label: 'None' },
+    { id: 'white', label: 'White' },
+    { id: 'black', label: 'Black' },
+    { id: 'feather', label: 'Feather' },
+  ];
+  return `<div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
+    <div>
+      <label class="field">Seam strip</label>
+      <div style="display:flex;gap:3px">
+        ${modes.map(m =>
+          `<button class="btn${val===m.id?' btn-primary':''}" style="padding:4px 10px;font-size:11px"
+            onclick="window._setParam('${modeKey}','${m.id}');window._render()">${m.label}</button>`
+        ).join('')}
+      </div>
+    </div>
+    ${val !== 'none' ? `<div style="min-width:120px">${paramSlider(widthKey, 'Width %', 1, 15, 0.5, '%')}</div>` : ''}
+  </div>`;
+}
+
+window._setParam = (k, v) => { state.params[k] = v; };
+window._savePrompt = (k, v) => { state.prompts[k] = v; };
+window._copyPrompt = (el) => {
+  navigator.clipboard.writeText(el.textContent.trim());
+  el.classList.add('copied');
+  setTimeout(() => el.classList.remove('copied'), 1500);
+};
+window._copyFromTextarea = (id) => {
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value);
+  const btn = ta.parentElement.querySelector('.btn');
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = orig, 1500);
+};
+
+function bindUploads() {
+  document.querySelectorAll('.upload-zone').forEach(zone => {
+    const key = zone.dataset.key;
+    const input = zone.querySelector('input');
+    zone.addEventListener('click', e => { if (e.target.tagName !== 'INPUT') input.click(); });
+    input.addEventListener('change', async e => {
+      if (e.target.files[0]) { await storeAsset(key, e.target.files[0]); render(); }
+    });
+    ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+    zone.addEventListener('drop', async e => {
+      const file = e.dataTransfer.files[0];
+      if (file?.type.startsWith('image/')) { await storeAsset(key, file); render(); }
+    });
+  });
+}
+
+function escapeHTML(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+window._download = (key, filename) => {
+  const asset = state.assets[key];
+  if (!asset) return;
+  const a = document.createElement('a');
+  a.href = asset.url; a.download = filename; a.click();
+};
+
+/* ═══════════ CANVAS PROCESSING ═══════════ */
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function getPixels(img) {
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, c.width, c.height);
+}
+
+function pixelsToCanvas(pixels, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(pixels, w, h), 0, 0);
+  return c;
+}
+
+function storeCanvasAsAsset(key, canvas, name) {
+  state.assets[key] = { name, url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height };
+}
+
+function dirToEquirect(x, y, z) {
+  const len = Math.sqrt(x*x + y*y + z*z);
+  x /= len; y /= len; z /= len;
+  const lng = Math.atan2(-z, -x);
+  const lat = Math.asin(Math.max(-1, Math.min(1, y)));
+  return [(lng + Math.PI) / (2 * Math.PI), (Math.PI / 2 - lat) / Math.PI];
+}
+
+function detectBlackRows(pixels, w, h) {
+  let top = 0, bot = 0;
+  for (let y = 0; y < h; y++) {
+    let black = true;
+    for (let x = 0; x < w; x += 10) { const i = (y*w+x)*4; if (pixels[i]>5||pixels[i+1]>5||pixels[i+2]>5) { black=false; break; } }
+    if (black) top++; else break;
+  }
+  for (let y = h-1; y >= 0; y--) {
+    let black = true;
+    for (let x = 0; x < w; x += 10) { const i = (y*w+x)*4; if (pixels[i]>5||pixels[i+1]>5||pixels[i+2]>5) { black=false; break; } }
+    if (black) bot++; else break;
+  }
+  return { top, bot };
+}
+
+function bilinearSample(pixels, w, h, sx, sy) {
+  const x0 = Math.floor(sx), y0 = Math.floor(sy);
+  const x1 = Math.min(x0+1, w-1), y1 = Math.min(y0+1, h-1);
+  const fx = sx-x0, fy = sy-y0;
+  const r = [];
+  for (let c = 0; c < 4; c++) {
+    r.push(Math.round(
+      pixels[(y0*w+x0)*4+c]*(1-fx)*(1-fy) + pixels[(y0*w+x1)*4+c]*fx*(1-fy) +
+      pixels[(y1*w+x0)*4+c]*(1-fx)*fy + pixels[(y1*w+x1)*4+c]*fx*fy));
+  }
+  return r;
+}
+
+function renderPerspectiveFromEquirect(eqPx, eqW, eqH, lookDir, fovDeg, outSize) {
+  const tanHalf = Math.tan(fovDeg * Math.PI / 360);
+  const out = new Uint8ClampedArray(outSize * outSize * 4);
+  const { top: topB, bot: botB } = detectBlackRows(eqPx, eqW, eqH);
+
+  for (let py = 0; py < outSize; py++) {
+    for (let px = 0; px < outSize; px++) {
+      const u = (2*(px+.5)/outSize - 1) * tanHalf;
+      const v = (2*(py+.5)/outSize - 1) * tanHalf;
+      const dx = u, dy = lookDir==='up' ? 1 : -1, dz = lookDir==='up' ? v : -v;
+      const [eu, ev] = dirToEquirect(dx, dy, dz);
+      const eqY = ev * (eqH-1);
+      const oi = (py*outSize+px)*4;
+      if ((lookDir==='up' && eqY < topB) || (lookDir==='down' && eqY > eqH-1-botB)) {
+        out[oi]=255; out[oi+1]=255; out[oi+2]=255; out[oi+3]=255;
+      } else {
+        const s = bilinearSample(eqPx, eqW, eqH, eu*(eqW-1), ev*(eqH-1));
+        out[oi]=s[0]; out[oi+1]=s[1]; out[oi+2]=s[2]; out[oi+3]=s[3];
+      }
+    }
+  }
+  return out;
+}
+
+function reprojectPoleToEquirect(eqPx, eqW, eqH, perspPx, perspSize, lookDir, fovDeg, featherDeg) {
+  const tanHalf = Math.tan(fovDeg * Math.PI / 360);
+  const featherRad = featherDeg * Math.PI / 180;
+  const out = new Uint8ClampedArray(eqPx);
+  const { top: topB } = detectBlackRows(eqPx, eqW, eqH);
+  const poleLatRad = Math.PI / 2 - (topB / eqH) * Math.PI;
+
+  for (let ey = 0; ey < eqH; ey++) {
+    for (let ex = 0; ex < eqW; ex++) {
+      const lng = (ex/eqW)*2*Math.PI - Math.PI;
+      const lat = Math.PI/2 - (ey/eqH)*Math.PI;
+      const absLat = Math.abs(lat);
+      if (absLat < poleLatRad - featherRad) continue;
+
+      const cosLat = Math.cos(lat), dx = -cosLat*Math.cos(lng), dy = Math.sin(lat), dz = -cosLat*Math.sin(lng);
+      let pu, pv;
+      if (lat > 0 && lookDir==='up') { pu = dx/dy; pv = dz/dy; }
+      else if (lat < 0 && lookDir==='down') { pu = dx/(-dy); pv = -dz/(-dy); }
+      else continue;
+      if (Math.abs(pu)>tanHalf || Math.abs(pv)>tanHalf) continue;
+
+      const ppx = (pu/tanHalf+1)/2*(perspSize-1), ppy = (pv/tanHalf+1)/2*(perspSize-1);
+      if (ppx<0||ppx>=perspSize||ppy<0||ppy>=perspSize) continue;
+      const s = bilinearSample(perspPx, perspSize, perspSize, ppx, ppy);
+      let blend = 1;
+      if (absLat < poleLatRad) { blend = (absLat - poleLatRad + featherRad)/featherRad; blend = Math.max(0,Math.min(1,blend)); blend = blend*blend*(3-2*blend); }
+      const oi = (ey*eqW+ex)*4;
+      for (let c=0;c<4;c++) out[oi+c] = Math.round(eqPx[oi+c]*(1-blend) + s[c]*blend);
+    }
+  }
+  return out;
+}
+
+function scaleImage(img, targetW, targetH) {
+  const c = document.createElement('canvas');
+  c.width = targetW; c.height = targetH;
+  c.getContext('2d').drawImage(img, 0, 0, targetW, targetH);
+  return c;
+}
+
+function cropRegion(pixels, srcW, srcH, cx, cy, cw, ch) {
+  const out = new Uint8ClampedArray(cw * ch * 4);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    const si = ((cy + y) * srcW + (cx + x)) * 4;
+    const di = (y * cw + x) * 4;
+    out[di]=pixels[si]; out[di+1]=pixels[si+1]; out[di+2]=pixels[si+2]; out[di+3]=pixels[si+3];
+  }
+  return out;
+}
+
+function compositeWithFeather(base, bw, bh, patch, pw, ph, ox, oy, stripPct) {
+  const out = new Uint8ClampedArray(base);
+  const stripW = Math.round(bw * (stripPct || 10) / 100);
+  const feather = Math.round(stripW * 0.6);
+  const cx = Math.floor(pw / 2);
+  const halfStrip = Math.floor(stripW / 2);
+  const totalHalf = halfStrip + feather;
+  for (let y = 0; y < ph; y++) {
+    for (let x = cx - totalHalf; x <= cx + totalHalf; x++) {
+      if (x < 0 || x >= pw) continue;
+      const bx = ox + x, by = oy + y;
+      if (bx < 0 || bx >= bw || by < 0 || by >= bh) continue;
+      const dist = Math.abs(x - cx);
+      let alpha;
+      if (dist <= halfStrip) { alpha = 1; }
+      else { alpha = 1 - (dist - halfStrip) / feather; }
+      alpha = Math.max(0, Math.min(1, alpha));
+      if (alpha <= 0) continue;
+      const bi = (by * bw + bx) * 4;
+      const pi = (y * pw + x) * 4;
+      for (let c = 0; c < 4; c++) out[bi+c] = Math.round(base[bi+c] * (1-alpha) + patch[pi+c] * alpha);
+    }
+  }
+  return out;
+}
+
+function shiftImage(pixels, w, h, shiftFrac, stripMode = 'none', stripPct = 3) {
+  const out = new Uint8ClampedArray(pixels.length);
+  const shift = Math.round(w * shiftFrac);
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+    const srcX = ((x-shift)%w+w)%w, si=(y*w+srcX)*4, di=(y*w+x)*4;
+    out[di]=pixels[si]; out[di+1]=pixels[si+1]; out[di+2]=pixels[si+2]; out[di+3]=pixels[si+3];
+  }
+  if (stripMode !== 'none' && stripMode !== 'feather') {
+    const stripW = Math.round(w * stripPct / 100);
+    const cx = Math.floor(w / 2), half = Math.floor(stripW / 2);
+    const x0 = cx - half, x1 = cx + half;
+    const v = stripMode === 'white' ? 255 : 0;
+    for (let y=0; y<h; y++) for (let x=x0; x<=x1; x++) {
+      const di = (y*w+x)*4;
+      out[di]=v; out[di+1]=v; out[di+2]=v; out[di+3]=255;
+    }
+  }
+  if (stripMode === 'feather') {
+    const stripW = Math.round(w * stripPct / 100);
+    const cx = Math.floor(w / 2), half = Math.floor(stripW / 2);
+    const featherW = Math.round(half * 0.6);
+    const totalHalf = half + featherW;
+    for (let y=0; y<h; y++) for (let x=cx-totalHalf; x<=cx+totalHalf; x++) {
+      if (x < 0 || x >= w) continue;
+      const dist = Math.abs(x - cx);
+      let t;
+      if (dist <= half) { t = 1; }
+      else { t = 1 - (dist - half) / featherW; }
+      t = Math.max(0, Math.min(1, t));
+      if (t <= 0) continue;
+      const di = (y*w+x)*4;
+      for (let c=0; c<3; c++) out[di+c] = Math.round(out[di+c] * (1-t) + 255 * t);
+    }
+  }
+  return out;
+}
+
+function generateMask(w, h, stripPxWidth) {
+  const out = new Uint8ClampedArray(w * h * 4);
+  const cx = Math.floor(w / 2), half = Math.floor(stripPxWidth / 2);
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+    const di = (y*w+x)*4;
+    const dist = Math.abs(x - cx);
+    if (dist <= half) {
+      out[di]=255; out[di+1]=255; out[di+2]=255; out[di+3]=255;
+    } else {
+      out[di]=0; out[di+1]=0; out[di+2]=0; out[di+3]=255;
+    }
+  }
+  return out;
+}
+
+function wrapStripToEquirect(stripPx, sW, sH, eqW, eqH, vertDeg) {
+  const out = new Uint8ClampedArray(eqW*eqH*4);
+  const halfV = (vertDeg/2)*Math.PI/180;
+  const tanHalfV = Math.tan(halfV);
+  for (let ey=0; ey<eqH; ey++) {
+    const lat = Math.PI/2 - (ey/eqH)*Math.PI;
+    if (lat > halfV || lat < -halfV) continue;
+    const sv = (1 - Math.tan(lat)/tanHalfV) / 2 * (sH - 1);
+    if (sv < 0 || sv >= sH) continue;
+    for (let ex=0; ex<eqW; ex++) {
+      const su = (ex/eqW) * (sW-1);
+      const s = bilinearSample(stripPx, sW, sH, su, sv);
+      const oi = (ey*eqW+ex)*4;
+      out[oi]=s[0]; out[oi+1]=s[1]; out[oi+2]=s[2]; out[oi+3]=s[3];
+    }
+  }
+  return out;
+}
+
+function renderPerspectiveGeneral(eqPx, eqW, eqH, yawDeg, pitchDeg, fovDeg, outSize) {
+  const tanHalf = Math.tan(fovDeg*Math.PI/360);
+  const yaw = yawDeg*Math.PI/180, pitch = pitchDeg*Math.PI/180;
+  const out = new Uint8ClampedArray(outSize*outSize*4);
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+  for (let py=0; py<outSize; py++) for (let px=0; px<outSize; px++) {
+    const u = (2*(px+.5)/outSize-1)*tanHalf, v = (2*(py+.5)/outSize-1)*tanHalf;
+    let dx=u, dy=-v, dz=-1;
+    let dx2=dx, dy2=dy*cp-dz*sp, dz2=dy*sp+dz*cp;
+    let dx3=dx2*cy+dz2*sy, dy3=dy2, dz3=-dx2*sy+dz2*cy;
+    const [eu, ev] = dirToEquirect(dx3, dy3, dz3);
+    const s = bilinearSample(eqPx, eqW, eqH, eu*(eqW-1), ev*(eqH-1));
+    const oi = (py*outSize+px)*4;
+    out[oi]=s[0]; out[oi+1]=s[1]; out[oi+2]=s[2]; out[oi+3]=s[3];
+  }
+  return out;
+}
+
+/* ═══════════ SPHERE VIEWER ═══════════ */
+let sphereScene, sphereCamera, sphereRenderer, sphereUniforms;
+let sphereDrag=false, spherePX=0, spherePY=0, sphereLon=0, sphereLat=0;
+
+function initSphere(container, textureUrl) {
+  if (sphereRenderer) { sphereRenderer.dispose(); container.querySelector('canvas')?.remove(); }
+  sphereScene = new THREE.Scene();
+  sphereCamera = new THREE.PerspectiveCamera(60, container.clientWidth/container.clientHeight, .1, 1000);
+  sphereCamera.position.set(0,0,.01);
+  sphereRenderer = new THREE.WebGLRenderer({antialias:true});
+  sphereRenderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  sphereRenderer.setSize(container.clientWidth, container.clientHeight);
+  sphereRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  container.insertBefore(sphereRenderer.domElement, container.firstChild);
+
+  const vs = `varying vec3 vD;void main(){vec4 w=modelMatrix*vec4(position,1.);vD=w.xyz-cameraPosition;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+  const fs = `uniform sampler2D tE;uniform float uS;uniform float uP;varying vec3 vD;
+    #define PI 3.14159265359
+    void main(){vec3 d=normalize(vD);float lng=atan(-d.z,-d.x);float lat=asin(clamp(d.y,-1.,1.));
+    lat=clamp(lat+uS*sin(uP*lat),-PI*.5,PI*.5);
+    float u=(lng+PI)/(2.*PI);float v=1.-(PI*.5-lat)/PI;
+    gl_FragColor=texture2D(tE,vec2(u,v));}`;
+
+  sphereUniforms = {tE:{value:null},uS:{value:state.params.a_vertCorrection},uP:{value:state.params.a_vertPower}};
+  const tex = new THREE.TextureLoader().load(textureUrl, ()=>{sphereUniforms.tE.value=tex;});
+  const geo = new THREE.SphereGeometry(50,64,32); geo.scale(-1,1,1);
+  sphereScene.add(new THREE.Mesh(geo, new THREE.ShaderMaterial({uniforms:sphereUniforms,vertexShader:vs,fragmentShader:fs})));
+  sphereLon=0; sphereLat=0;
+  const cvs = sphereRenderer.domElement;
+  cvs.addEventListener('pointerdown',e=>{sphereDrag=true;spherePX=e.clientX;spherePY=e.clientY;});
+  window.addEventListener('pointermove',e=>{if(!sphereDrag)return;sphereLon-=(e.clientX-spherePX)*.25;sphereLat+=(e.clientY-spherePY)*.25;sphereLat=Math.max(-85,Math.min(85,sphereLat));spherePX=e.clientX;spherePY=e.clientY;});
+  window.addEventListener('pointerup',()=>sphereDrag=false);
+  cvs.addEventListener('wheel',e=>{sphereCamera.fov=Math.max(30,Math.min(110,sphereCamera.fov+e.deltaY*.05));sphereCamera.updateProjectionMatrix();});
+  (function anim(){requestAnimationFrame(anim);const phi=THREE.MathUtils.degToRad(90-sphereLat),th=THREE.MathUtils.degToRad(sphereLon);sphereCamera.lookAt(50*Math.sin(phi)*Math.cos(th),50*Math.cos(phi),50*Math.sin(phi)*Math.sin(th));sphereRenderer.render(sphereScene,sphereCamera);})();
+}
+
+window._previewSphere = (assetKey) => {
+  const a = state.assets[assetKey]; if (!a) return;
+  const c = document.getElementById('sphere-container'); if (!c) return;
+  c.innerHTML = ''; initSphere(c, a.url);
+};
+window._applySphereCorrection = () => {
+  if (sphereUniforms) { sphereUniforms.uS.value = state.params.a_vertCorrection; sphereUniforms.uP.value = state.params.a_vertPower; }
+};
+
+/* ═══════════ WORKFLOW A ═══════════ */
+function renderA_ref() {
+  return `<h2>Reference Image</h2>
+    <p class="desc">The source image that Gemini uses to generate the initial panoramic equirect.</p>
+    <div class="card">${uploadHTML('a_ref', 'Drop reference image')}</div>`;
+}
+
+function renderA_generate() {
+  const input = state.assets.a_ref;
+  return `<h2>Generate 21:9 Equirect</h2>
+    <p class="desc">Expand the reference into a 21:9 panoramic equirectangular image.</p>
+    ${geminiSettingsHTML('a_s1_model', 'a_s1_res', '21:9')}
+    ${editablePromptHTML('a_s1_prompt',
+      `Generate a 360 equirectangular image of this scene, adjust view height to match human eye-level, adjust distance so the closest object is 1m away`,
+      'Prompt — click to expand & copy')}
+    <div class="inline-io" style="margin-top:8px">
+      <div class="card"><h3>Input</h3>
+        ${input ? assetPreview('a_ref', 'Ref') : '<span style="color:var(--muted);font-size:12px">Upload ref in Step 1</span>'}
+      </div>
+      <div class="card"><h3>Gemini Result</h3>
+        ${uploadHTML('a_s1_output', 'Drop 21:9 equirect')}
+      </div>
+    </div>`;
+}
+
+function renderA_seam() {
+  const input = state.assets.a_s1_output;
+  const crop = state.assets.a_s2_crop;
+  const fixed = state.assets.a_s2_gemini_result;
+  const output = state.assets.a_s2_output;
+
+  return `<h2>Seam Fix</h2>
+    <p class="desc">Shift → crop 4:3 center with strip → Gemini completes → composite back with feather → unshift.</p>
+    <div class="card">
+      <div style="display:flex;gap:16px;align-items:end;flex-wrap:wrap">
+        <div>${stripModeSelector('a_stripMode', 'a_stripWidth')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-primary" onclick="window._seamCropA()" ${input?'':'disabled'}>1. Shift & Crop</button>
+          ${fixed ? `<button class="btn btn-primary" onclick="window._seamCompositeA()">3. Composite & Unshift</button>` : ''}
+          ${!input ? '<span style="color:var(--muted);font-size:11px">Upload equirect in previous step first.</span>' : ''}
+        </div>
+      </div>
+      ${crop ? `<div style="margin-top:8px">${assetPreview('a_s2_crop', '4:3 crop (Gemini input)')}</div>` : ''}
+      ${output ? `<div style="margin-top:8px">${assetPreview('a_s2_output', 'Seam-fixed')}</div>` : ''}
+    </div>
+    ${crop ? `
+      ${geminiSettingsHTML('a_s2_model', 'a_s2_res', '4:3')}
+      <div class="card" style="margin-top:6px">
+        <h3>Strategy A: Single image with strip</h3>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:6px">Send the image with the visible strip. Best with "feather" mode.</p>
+        ${assetPreview('a_s2_crop', 'Gemini input')}
+        ${editablePromptHTML('a_s2_prompt',
+          `This panoramic photo has a corrupted vertical band in the center where image data was lost. Seamlessly reconstruct the missing area by continuing the scene's surfaces, textures, lighting, and perspective from both sides. The repaired area should be indistinguishable from the rest of the image. Do not alter anything outside the damaged band.`,
+          'Strategy A prompt')}
+      </div>
+      <div class="card">
+        <h3>Strategy B: Clean image + mask (two images)</h3>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:6px">Send both images to Gemini. The model uses the mask to identify the repair area while seeing full context.</p>
+        <div class="grid-2-tight">
+          <div>${assetPreview('a_s2_crop_clean', 'Image 1: clean crop')}</div>
+          <div>${assetPreview('a_s2_mask', 'Image 2: mask')}</div>
+        </div>
+        ${editablePromptHTML('a_s2_prompt_b',
+          `The first image is a panoramic photo with a seam running vertically through the center where the left and right edges of the panorama meet. The second image is a mask — the white area marks exactly where the seam is. Seamlessly repair this seam area so the left and right halves blend naturally. Continue all surfaces, textures, lighting and perspective smoothly across the repair zone. Keep everything outside the masked area exactly as-is.`,
+          'Strategy B prompt (two-image)')}
+      </div>
+      <hr class="sep">
+      <div class="card"><h3>Upload Gemini result</h3>
+        ${uploadHTML('a_s2_gemini_result', 'Drop completed 4:3 image')}
+      </div>
+    ` : ''}`;
+}
+
+window._seamCropA = async () => {
+  const src = state.assets.a_s1_output; if (!src) return;
+  const img = await loadImage(src.url);
+  const {data,width,height} = getPixels(img);
+  const shifted = shiftImage(data, width, height, 0.5, state.params.a_stripMode, state.params.a_stripWidth);
+  state._seamShiftedA = { data: shifted, width, height };
+  const cropH = height;
+  const cropW = Math.round(cropH * 4 / 3);
+  const x0 = Math.floor((width - cropW) / 2);
+  const cropped = cropRegion(shifted, width, height, x0, 0, cropW, cropH);
+  storeCanvasAsAsset('a_s2_crop', pixelsToCanvas(cropped, cropW, cropH), 'seam-crop.png');
+  const cleanShifted = shiftImage(data, width, height, 0.5);
+  const cleanCrop = cropRegion(cleanShifted, width, height, x0, 0, cropW, cropH);
+  storeCanvasAsAsset('a_s2_crop_clean', pixelsToCanvas(cleanCrop, cropW, cropH), 'seam-crop-clean.png');
+  const stripPx = Math.round(width * state.params.a_stripWidth / 100);
+  const mask = generateMask(cropW, cropH, stripPx);
+  storeCanvasAsAsset('a_s2_mask', pixelsToCanvas(mask, cropW, cropH), 'seam-mask.png');
+  render();
+};
+
+window._seamCompositeA = async () => {
+  const src = state.assets.a_s1_output;
+  const fixedSrc = state.assets.a_s2_gemini_result;
+  if (!src || !fixedSrc) return;
+  const srcImg = await loadImage(src.url);
+  const {data,width,height} = getPixels(srcImg);
+  const shifted = shiftImage(data, width, height, 0.5);
+  const fixedImg = await loadImage(fixedSrc.url);
+  const cropH = height;
+  const cropW = Math.round(cropH * 4 / 3);
+  const scaled = scaleImage(fixedImg, cropW, cropH);
+  const fixedD = getPixels(scaled);
+  const x0 = Math.floor((width - cropW) / 2);
+  const composited = compositeWithFeather(shifted, width, height, fixedD.data, fixedD.width, fixedD.height, x0, 0, state.params.a_stripWidth);
+  const unshifted = shiftImage(composited, width, height, -0.5);
+  storeCanvasAsAsset('a_s2_output', pixelsToCanvas(unshifted, width, height), 'seam-fixed.png');
+  render();
+};
+
+function renderA_letterbox() {
+  const src = state.assets.a_s2_output || state.assets.a_s1_output;
+  const result = state.assets.a_letterboxed;
+  return `<h2>Letterbox to 2:1</h2>
+    <p class="desc">Pad to 2:1 aspect ratio for proper equirectangular geometry.</p>
+    <div class="card">
+      ${src ? `<span class="tag">Source: ${src.name} (${src.width}x${src.height}) — AR: ${(src.width/src.height).toFixed(2)}:1</span>` : '<span style="color:var(--muted);font-size:12px">Complete a previous step first.</span>'}
+      <div class="btn-row"><button class="btn btn-primary" onclick="window._letterboxA()" ${src?'':'disabled'}>Letterbox to 2:1</button></div>
+      ${result ? `<div style="margin-top:8px">${assetPreview('a_letterboxed', 'Letterboxed')}</div>` : ''}
+    </div>`;
+}
+
+window._letterboxA = async () => {
+  const src = state.assets.a_s2_output || state.assets.a_s1_output; if (!src) return;
+  const img = await loadImage(src.url);
+  const tH = Math.round(img.width/2), pad = Math.round((tH-img.height)/2);
+  const c = document.createElement('canvas'); c.width=img.width; c.height=tH;
+  const ctx = c.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(img,0,pad);
+  storeCanvasAsAsset('a_letterboxed', c, 'letterboxed.png');
+  render();
+};
+
+function renderA_poles() {
+  const src = state.assets.a_letterboxed;
+  const top = state.assets.a_pole_top;
+  const bot = state.assets.a_pole_bottom;
+  return `<h2>Render Pole Views</h2>
+    <p class="desc">Perspective views looking up/down. White circles = inpainting targets.</p>
+    <div class="card">
+      ${paramSlider('a_poleFov', 'FOV', 90, 150, 5, '°')}
+      <div class="btn-row"><button class="btn btn-primary" onclick="window._renderPolesA()" ${src?'':'disabled'}>Render Poles</button>
+        ${!src ? '<span style="color:var(--muted);font-size:11px">Run letterbox first.</span>' : ''}
+      </div>
+    </div>
+    ${top || bot ? `<div class="grid-2-tight">
+      <div class="card"><h3>Up (Top)</h3>${top ? assetPreview('a_pole_top','Top') : ''}</div>
+      <div class="card"><h3>Down (Bottom)</h3>${bot ? assetPreview('a_pole_bottom','Bottom') : ''}</div>
+    </div>` : ''}`;
+}
+
+window._renderPolesA = async () => {
+  const src = state.assets.a_letterboxed; if (!src) return;
+  const img = await loadImage(src.url);
+  const {data,width,height} = getPixels(img);
+  const fov = state.params.a_poleFov, size = Math.min(2048, width);
+  for (const dir of ['up','down']) {
+    const px = renderPerspectiveFromEquirect(data,width,height,dir,fov,size);
+    storeCanvasAsAsset(`a_pole_${dir==='up'?'top':'bottom'}`, pixelsToCanvas(px,size,size), `pole-${dir}.png`);
+  }
+  render();
+};
+
+function renderA_fillPoles() {
+  return `<h2>Fill Poles with Gemini</h2>
+    <p class="desc">Fill the white circular areas in both pole views. Run each separately.</p>
+    ${geminiSettingsHTML('a_s3top_model', 'a_s3top_res', '1:1')}
+    <div class="grid-2-tight">
+      <div class="card gemini-card">
+        <h3>Top (Ceiling)</h3>
+        ${editablePromptHTML('a_s3top_prompt',
+          `Fill the white circle in the center of this image. This is a wide-angle photo looking straight up. Complete the missing area to seamlessly match the surrounding environment.`,
+          'Top prompt')}
+        <div style="margin-top:6px">${state.assets.a_pole_top ? assetPreview('a_pole_top', 'Input') : '<span style="color:var(--muted);font-size:11px">Render poles first</span>'}</div>
+        <hr class="sep">
+        ${uploadHTML('a_s3_filled_top', 'Upload filled top')}
+      </div>
+      <div class="card gemini-card">
+        <h3>Bottom (Floor)</h3>
+        ${editablePromptHTML('a_s3bot_prompt',
+          `Fill the white circle in the center of this image. This is a wide-angle photo looking straight down at the ground. Complete the missing area to seamlessly match the surrounding environment.`,
+          'Bottom prompt')}
+        <div style="margin-top:6px">${state.assets.a_pole_bottom ? assetPreview('a_pole_bottom', 'Input') : '<span style="color:var(--muted);font-size:11px">Render poles first</span>'}</div>
+        <hr class="sep">
+        ${uploadHTML('a_s3_filled_bottom', 'Upload filled bottom')}
+      </div>
+    </div>`;
+}
+
+function renderA_reproject() {
+  const eq = state.assets.a_letterboxed;
+  const top = state.assets.a_s3_filled_top;
+  const bot = state.assets.a_s3_filled_bottom;
+  const result = state.assets.a_final;
+  const ready = eq && top && bot;
+
+  return `<h2>Reproject & Preview</h2>
+    <p class="desc">Reproject filled poles and preview on sphere.</p>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">${paramSlider('a_featherDeg', 'Blend feather', 1, 10, 0.5, '°')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-primary" onclick="window._reprojectA()" ${ready?'':'disabled'}>Reproject</button>
+          ${result ? `<button class="btn btn-primary" onclick="window._previewSphere('a_final')">View on Sphere</button>` : ''}
+          ${!ready ? '<span style="color:var(--muted);font-size:11px">Need letterboxed + both poles.</span>' : ''}
+        </div>
+      </div>
+      ${result ? `<div style="margin-top:8px">${assetPreview('a_final', 'Final output')}</div>` : ''}
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px">${paramSlider('a_vertCorrection', 'V correction', -0.15, 0.15, 0.001, '')}</div>
+        <div style="flex:1;min-width:100px">${paramSlider('a_vertPower', 'Shape', 1, 4, 0.1, '')}</div>
+        <button class="btn" onclick="window._applySphereCorrection()" style="flex-shrink:0">Apply</button>
+      </div>
+      <div id="sphere-container" style="margin-top:8px"><p style="padding:16px;color:var(--muted);font-size:12px">Click "View on Sphere" to load.</p></div>
+    </div>`;
+}
+
+window._reprojectA = async () => {
+  const eqSrc = state.assets.a_letterboxed;
+  const topSrc = state.assets.a_s3_filled_top;
+  const botSrc = state.assets.a_s3_filled_bottom;
+  if (!eqSrc||!topSrc||!botSrc) return;
+  const eqImg = await loadImage(eqSrc.url);
+  const topImg = await loadImage(topSrc.url);
+  const botImg = await loadImage(botSrc.url);
+  const eqD = getPixels(eqImg), topD = getPixels(topImg), botD = getPixels(botImg);
+  const fov = state.params.a_poleFov, feather = state.params.a_featherDeg;
+  let r = new Uint8ClampedArray(eqD.data);
+  r = reprojectPoleToEquirect(r, eqD.width, eqD.height, topD.data, topD.width, 'up', fov, feather);
+  r = reprojectPoleToEquirect(r, eqD.width, eqD.height, botD.data, botD.width, 'down', fov, feather);
+  storeCanvasAsAsset('a_final', pixelsToCanvas(r, eqD.width, eqD.height), 'equirect-final.png');
+  render();
+};
+
+/* ═══════════ WORKFLOW B ═══════════ */
+function renderB_ref() {
+  return `<h2>Reference Image</h2>
+    <p class="desc">The source image that Gemini uses to generate the 4:1 panoramic strip.</p>
+    <div class="card">${uploadHTML('b_ref', 'Drop reference image')}</div>`;
+}
+
+function renderB_generate() {
+  return `<h2>Generate 4:1 Strip</h2>
+    <p class="desc">Expand reference into a 4:1 panoramic strip (NOT equirect — a flat horizon band).</p>
+    ${geminiSettingsHTML('b_s1_model', 'b_s1_res', '4:1')}
+    ${editablePromptHTML('b_s1_prompt',
+      `Generate a 4:1 panoramic strip of this scene showing a full 360° horizontal view. Adjust view height to match human eye-level, adjust distance so the closest object is 1m away. The left and right edges must connect seamlessly when wrapped into a cylinder.`,
+      'Strip generation prompt — click to expand')}
+    <div class="inline-io" style="margin-top:8px">
+      <div class="card"><h3>Input</h3>
+        ${state.assets.b_ref ? assetPreview('b_ref', 'Ref') : '<span style="color:var(--muted);font-size:12px">Upload ref in Step 1</span>'}
+      </div>
+      <div class="card"><h3>Gemini Result</h3>
+        ${uploadHTML('b_s1_output', 'Drop 4:1 strip')}
+      </div>
+    </div>`;
+}
+
+function renderB_seam() {
+  const input = state.assets.b_s1_output;
+  const crop = state.assets.b_s2_crop;
+  const fixed = state.assets.b_s2_gemini_result;
+  const output = state.assets.b_s2_output;
+
+  return `<h2>Seam Fix</h2>
+    <p class="desc">Shift → crop 4:3 center with strip → Gemini completes → composite back with feather → unshift.</p>
+    <div class="card">
+      <div style="display:flex;gap:16px;align-items:end;flex-wrap:wrap">
+        <div>${stripModeSelector('b_stripMode', 'b_stripWidth')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-primary" onclick="window._seamCropB()" ${input?'':'disabled'}>1. Shift & Crop</button>
+          ${fixed ? `<button class="btn btn-primary" onclick="window._seamCompositeB()">3. Composite & Unshift</button>` : ''}
+          ${!input ? '<span style="color:var(--muted);font-size:11px">Upload strip first.</span>' : ''}
+        </div>
+      </div>
+      ${crop ? `<div style="margin-top:8px">${assetPreview('b_s2_crop', '4:3 crop (Gemini input)')}</div>` : ''}
+      ${output ? `<div style="margin-top:8px">${assetPreview('b_s2_output', 'Seam-fixed')}</div>` : ''}
+    </div>
+    ${crop ? `
+      ${geminiSettingsHTML('b_seam_model', 'b_seam_res', '4:3')}
+      <div class="card" style="margin-top:6px">
+        <h3>Strategy A: Single image with strip</h3>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:6px">Send the image with the visible strip. Best with "feather" mode.</p>
+        ${assetPreview('b_s2_crop', 'Gemini input')}
+        ${editablePromptHTML('b_seam_prompt',
+          `This panoramic photo has a corrupted vertical band in the center where image data was lost. Seamlessly reconstruct the missing area by continuing the scene's surfaces, textures, lighting, and perspective from both sides. The repaired area should be indistinguishable from the rest of the image. Do not alter anything outside the damaged band.`,
+          'Strategy A prompt')}
+      </div>
+      <div class="card">
+        <h3>Strategy B: Clean image + mask (two images)</h3>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:6px">Send both images to Gemini. The model uses the mask to identify the repair area while seeing full context.</p>
+        <div class="grid-2-tight">
+          <div>${assetPreview('b_s2_crop_clean', 'Image 1: clean crop')}</div>
+          <div>${assetPreview('b_s2_mask', 'Image 2: mask')}</div>
+        </div>
+        ${editablePromptHTML('b_seam_prompt_b',
+          `The first image is a panoramic photo with a seam running vertically through the center where the left and right edges of the panorama meet. The second image is a mask — the white area marks exactly where the seam is. Seamlessly repair this seam area so the left and right halves blend naturally. Continue all surfaces, textures, lighting and perspective smoothly across the repair zone. Keep everything outside the masked area exactly as-is.`,
+          'Strategy B prompt (two-image)')}
+      </div>
+      <hr class="sep">
+      <div class="card"><h3>Upload Gemini result</h3>
+        ${uploadHTML('b_s2_gemini_result', 'Drop completed 4:3 image')}
+      </div>
+    ` : ''}`;
+}
+
+window._seamCropB = async () => {
+  const src = state.assets.b_s1_output; if (!src) return;
+  const img = await loadImage(src.url);
+  const {data,width,height} = getPixels(img);
+  const shifted = shiftImage(data, width, height, 0.5, state.params.b_stripMode, state.params.b_stripWidth);
+  state._seamShiftedB = { data: shifted, width, height };
+  const cropH = height;
+  const cropW = Math.round(cropH * 4 / 3);
+  const x0 = Math.floor((width - cropW) / 2);
+  const cropped = cropRegion(shifted, width, height, x0, 0, cropW, cropH);
+  storeCanvasAsAsset('b_s2_crop', pixelsToCanvas(cropped, cropW, cropH), 'seam-crop.png');
+  const cleanShifted = shiftImage(data, width, height, 0.5);
+  const cleanCrop = cropRegion(cleanShifted, width, height, x0, 0, cropW, cropH);
+  storeCanvasAsAsset('b_s2_crop_clean', pixelsToCanvas(cleanCrop, cropW, cropH), 'seam-crop-clean.png');
+  const stripPx = Math.round(width * state.params.b_stripWidth / 100);
+  const mask = generateMask(cropW, cropH, stripPx);
+  storeCanvasAsAsset('b_s2_mask', pixelsToCanvas(mask, cropW, cropH), 'seam-mask.png');
+  render();
+};
+
+window._seamCompositeB = async () => {
+  const src = state.assets.b_s1_output;
+  const fixedSrc = state.assets.b_s2_gemini_result;
+  if (!src || !fixedSrc) return;
+  const srcImg = await loadImage(src.url);
+  const {data,width,height} = getPixels(srcImg);
+  const shifted = shiftImage(data, width, height, 0.5);
+  const fixedImg = await loadImage(fixedSrc.url);
+  const cropH = height;
+  const cropW = Math.round(cropH * 4 / 3);
+  const scaled = scaleImage(fixedImg, cropW, cropH);
+  const fixedD = getPixels(scaled);
+  const x0 = Math.floor((width - cropW) / 2);
+  const composited = compositeWithFeather(shifted, width, height, fixedD.data, fixedD.width, fixedD.height, x0, 0, state.params.b_stripWidth);
+  const unshifted = shiftImage(composited, width, height, -0.5);
+  storeCanvasAsAsset('b_s2_output', pixelsToCanvas(unshifted, width, height), 'seam-fixed.png');
+  render();
+};
+
+function renderB_wrap() {
+  const src = state.assets.b_s2_output || state.assets.b_s1_output;
+  const result = state.assets.b_wrapped;
+  return `<h2>Wrap as Horizon Band</h2>
+    <p class="desc">Map strip onto sphere. Vertical coverage = latitude range.</p>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">${paramSlider('b_vertCoverage', 'Coverage', 30, 120, 5, '°')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-primary" onclick="window._wrapB()" ${src?'':'disabled'}>Wrap</button>
+          ${result ? `<button class="btn btn-primary" onclick="window._previewSphere('b_wrapped')">View on Sphere</button>` : ''}
+        </div>
+      </div>
+      ${result ? `<div style="margin-top:8px">${assetPreview('b_wrapped', 'Wrapped equirect')}</div>` : ''}
+    </div>
+    <div class="card">
+      <div id="sphere-container"><p style="padding:16px;color:var(--muted);font-size:12px">Click "View on Sphere" to load.</p></div>
+    </div>`;
+}
+
+window._wrapB = async () => {
+  const src = state.assets.b_s2_output || state.assets.b_s1_output; if (!src) return;
+  const img = await loadImage(src.url);
+  const {data,width,height} = getPixels(img);
+  const eqW=4096, eqH=2048;
+  storeCanvasAsAsset('b_wrapped', pixelsToCanvas(wrapStripToEquirect(data,width,height,eqW,eqH,state.params.b_vertCoverage),eqW,eqH), 'wrapped-equirect.png');
+  render();
+};
+
+function renderB_capture() {
+  const src = state.assets.b_wrapped;
+  const top = state.assets.b_capture_top;
+  const bot = state.assets.b_capture_bottom;
+  return `<h2>Render Pole Captures</h2>
+    <p class="desc">Perspective views looking up and down from the missing pole regions — for Gemini to complete.</p>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:100px">${paramSlider('b_captureFov', 'FOV', 85, 150, 5, '°')}</div>
+        <div style="min-width:100px">${paramSlider('b_captureYaw', 'Yaw', -180, 180, 5, '°')}</div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="window._captureB()" ${src?'':'disabled'}>Render Top & Bottom</button>
+        ${!src ? '<span style="color:var(--muted);font-size:11px">Run wrap step first.</span>' : ''}
+      </div>
+    </div>
+    ${top || bot ? `<div class="grid-2-tight">
+      <div class="card"><h3>Top (pitch 90°)</h3>${top ? assetPreview('b_capture_top','Top capture') : ''}</div>
+      <div class="card"><h3>Bottom (pitch -90°)</h3>${bot ? assetPreview('b_capture_bottom','Bottom capture') : ''}</div>
+    </div>` : ''}`;
+}
+
+window._captureB = async () => {
+  const src = state.assets.b_wrapped; if (!src) return;
+  const img = await loadImage(src.url);
+  const {data,width,height} = getPixels(img);
+  const size = 2048, fov = state.params.b_captureFov, yaw = state.params.b_captureYaw;
+  for (const [pitch, key, name] of [[90,'b_capture_top','capture-top.png'],[-90,'b_capture_bottom','capture-bottom.png']]) {
+    const px = renderPerspectiveGeneral(data, width, height, yaw, pitch, fov, size);
+    storeCanvasAsAsset(key, pixelsToCanvas(px, size, size), name);
+  }
+  render();
+};
+
+function renderB_complete() {
+  return `<h2>Fill Captures with Gemini</h2>
+    <p class="desc">Fill the black regions in both pole captures. Run each separately.</p>
+    ${geminiSettingsHTML('b_comp_model', 'b_comp_res', '1:1')}
+    <div class="grid-2-tight">
+      <div class="card gemini-card">
+        <h3>Top (Ceiling)</h3>
+        ${editablePromptHTML('b_comp_top_prompt',
+          `Fill the black regions in this wide-angle photo looking straight up. Complete the missing areas to seamlessly match the surrounding environment's surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE`,
+          'Top prompt')}
+        <div style="margin-top:6px">${state.assets.b_capture_top ? assetPreview('b_capture_top', 'Input') : '<span style="color:var(--muted);font-size:11px">Render captures first</span>'}</div>
+        <hr class="sep">
+        ${uploadHTML('b_filled_top', 'Upload filled top')}
+      </div>
+      <div class="card gemini-card">
+        <h3>Bottom (Floor)</h3>
+        ${editablePromptHTML('b_comp_bot_prompt',
+          `Fill the black regions in this wide-angle photo looking straight down at the ground. Complete the missing areas to seamlessly match the surrounding environment's surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE`,
+          'Bottom prompt')}
+        <div style="margin-top:6px">${state.assets.b_capture_bottom ? assetPreview('b_capture_bottom', 'Input') : '<span style="color:var(--muted);font-size:11px">Render captures first</span>'}</div>
+        <hr class="sep">
+        ${uploadHTML('b_filled_bottom', 'Upload filled bottom')}
+      </div>
+    </div>`;
+}
+
+function renderB_reproject() {
+  const result = state.assets.b_final;
+  const ready = state.assets.b_wrapped && state.assets.b_filled_top && state.assets.b_filled_bottom;
+  return `<h2>Reproject & Preview</h2>
+    <p class="desc">Reproject both filled captures back onto the sphere.</p>
+    <div class="card">
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn-primary" onclick="window._reprojectB()" ${ready?'':'disabled'}>Reproject Both</button>
+        ${result ? `<button class="btn btn-primary" onclick="window._previewSphere('b_final')">View on Sphere</button>` : ''}
+        ${!ready ? '<span style="color:var(--muted);font-size:11px">Need wrapped equirect + both filled captures.</span>' : ''}
+      </div>
+      ${result ? `<div style="margin-top:8px">${assetPreview('b_final', 'Final output')}</div>` : ''}
+    </div>
+    <div class="card">
+      <div id="sphere-container"><p style="padding:16px;color:var(--muted);font-size:12px">Click "View on Sphere" to load.</p></div>
+    </div>`;
+}
+
+function reprojectCapture(out, eqW, eqH, eqData, capData, cS, yawDeg, pitchDeg, fovDeg) {
+  const fov=fovDeg*Math.PI/180, tanH=Math.tan(fov/2);
+  const yaw=yawDeg*Math.PI/180, pitch=pitchDeg*Math.PI/180;
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  for (let ey=0;ey<eqH;ey++) for (let ex=0;ex<eqW;ex++) {
+    const lng=(ex/eqW)*2*Math.PI-Math.PI, lat=Math.PI/2-(ey/eqH)*Math.PI;
+    const cL=Math.cos(lat);
+    let wx=-cL*Math.cos(lng),wy=Math.sin(lat),wz=-cL*Math.sin(lng);
+    let rx=wx*cy-wz*sy,ry=wy,rz=wx*sy+wz*cy;
+    let cx2=rx,cy2=ry*cp+rz*sp,cz2=-ry*sp+rz*cp;
+    if(cz2>=0)continue;
+    const pu=cx2/(-cz2),pv=-cy2/(-cz2);
+    if(Math.abs(pu)>tanH||Math.abs(pv)>tanH)continue;
+    const ppx=(pu/tanH+1)/2*(cS-1),ppy=(pv/tanH+1)/2*(cS-1);
+    if(ppx<0||ppx>=cS||ppy<0||ppy>=cS)continue;
+    const s=bilinearSample(capData,cS,cS,ppx,ppy);
+    const edge=Math.min(ppx,ppy,cS-1-ppx,cS-1-ppy)/(cS*.1), bl=Math.min(1,edge);
+    const oi=(ey*eqW+ex)*4;
+    for(let c=0;c<4;c++) out[oi+c]=Math.round(out[oi+c]*(1-bl)+s[c]*bl);
+  }
+}
+
+window._reprojectB = async () => {
+  const eqSrc = state.assets.b_wrapped;
+  const topSrc = state.assets.b_filled_top;
+  const botSrc = state.assets.b_filled_bottom;
+  if (!eqSrc||!topSrc||!botSrc) { console.warn('Missing assets:', {eq:!!eqSrc, top:!!topSrc, bot:!!botSrc}); return; }
+  try {
+  const eqImg = await loadImage(eqSrc.url);
+  const topImg = await loadImage(topSrc.url);
+  const botImg = await loadImage(botSrc.url);
+  const eqD = getPixels(eqImg);
+  const capSize = 2048;
+  const topScaled = scaleImage(topImg, capSize, capSize);
+  const botScaled = scaleImage(botImg, capSize, capSize);
+  const topD = getPixels(topScaled), botD = getPixels(botScaled);
+  const eqW=eqD.width, eqH=eqD.height;
+  const fov = state.params.b_captureFov, yaw = state.params.b_captureYaw;
+  const out = new Uint8ClampedArray(eqD.data);
+  reprojectCapture(out, eqW, eqH, eqD.data, topD.data, capSize, yaw, 90, fov);
+  reprojectCapture(out, eqW, eqH, eqD.data, botD.data, capSize, yaw, -90, fov);
+  storeCanvasAsAsset('b_final', pixelsToCanvas(out,eqW,eqH), 'equirect-final-b.png');
+  render();
+  } catch(e) { console.error('Reproject B failed:', e); alert('Reproject failed: ' + e.message); }
+};
+
+/* ═══════════ LOAD TEST ASSETS ═══════════ */
+/* ═══════════ EXPORT ═══════════ */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const exp = { workflow: state.workflow, params: state.params, prompts: state.prompts, assetKeys: Object.keys(state.assets) };
+  const blob = new Blob([JSON.stringify(exp,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='workflow-session.json'; a.click();
+});
+
+/* ═══════════ INIT ═══════════ */
+render();
+autoLoadAssets();
+</script>
+</body>
+</html>

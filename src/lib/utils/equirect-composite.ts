@@ -199,9 +199,60 @@ export async function compositeEquirect(inputs: PositionedInput[]): Promise<Buff
     .toBuffer();
 }
 
-export async function resizeToEquirect(imageBuffer: Buffer): Promise<Buffer> {
+/**
+ * Letterbox a non-2:1 image to exactly 2:1 by adding black bars at top/bottom.
+ * Used in the double-pass strategy: the horizon content is preserved and the
+ * black pole regions are later inpainted by the AI edit endpoint.
+ */
+export async function letterboxToEquirect(imageBuffer: Buffer): Promise<Buffer> {
+  const meta = await sharp(imageBuffer).metadata();
+  const srcW = meta.width ?? EQUIRECT_WIDTH;
+  const srcH = meta.height ?? EQUIRECT_HEIGHT;
+  const targetH = Math.round(srcW / 2);
+
+  if (srcH >= targetH) {
+    return sharp(imageBuffer)
+      .resize(EQUIRECT_WIDTH, EQUIRECT_HEIGHT, { fit: "fill" })
+      .png()
+      .toBuffer();
+  }
+
+  const scaledW = EQUIRECT_WIDTH;
+  const scaledH = Math.round((srcH / srcW) * EQUIRECT_WIDTH);
+  const topPad = Math.round((EQUIRECT_HEIGHT - scaledH) / 2);
+
   return sharp(imageBuffer)
-    .resize(EQUIRECT_WIDTH, EQUIRECT_HEIGHT, { fit: "fill" })
+    .resize(scaledW, scaledH, { fit: "fill" })
+    .extend({
+      top: topPad,
+      bottom: EQUIRECT_HEIGHT - scaledH - topPad,
+      background: { r: 0, g: 0, b: 0, alpha: 255 },
+    })
+    .png()
+    .toBuffer();
+}
+
+export async function resizeToEquirect(imageBuffer: Buffer): Promise<Buffer> {
+  const meta = await sharp(imageBuffer).metadata();
+  const srcW = meta.width ?? EQUIRECT_WIDTH;
+  const srcH = meta.height ?? EQUIRECT_HEIGHT;
+  const srcRatio = srcW / srcH;
+  const targetRatio = EQUIRECT_WIDTH / EQUIRECT_HEIGHT;
+
+  if (Math.abs(srcRatio - targetRatio) < 0.01) {
+    return sharp(imageBuffer)
+      .resize(EQUIRECT_WIDTH, EQUIRECT_HEIGHT, { fit: "fill" })
+      .png()
+      .toBuffer();
+  }
+
+  // Source is wider than 2:1 (e.g. 21:9 from fal.ai): scale to match height,
+  // then center-crop the width to preserve vertical proportions at the poles.
+  return sharp(imageBuffer)
+    .resize(EQUIRECT_WIDTH, EQUIRECT_HEIGHT, {
+      fit: "cover",
+      position: "centre",
+    })
     .png()
     .toBuffer();
 }

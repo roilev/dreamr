@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>360° Pipeline Spec</title>
+<style>
+:root {
+  --bg: #0b1020; --panel: #111830; --text: #e8edff; --muted: #8a96bc;
+  --accent: #5b8cff; --accent2: #5ce0a8; --border: #1e2d55; --hover: #182247;
+  --gemini: #a78bfa; --gemini-bg: rgba(167,139,250,.06); --gemini-border: rgba(167,139,250,.2);
+  --debug-bg: rgba(0,0,0,.2); --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0 }
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+header { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+header h1 { font-size: 15px; font-weight: 600; }
+.tabs { display: flex; gap: 2px; background: rgba(255,255,255,.05); border-radius: 8px; padding: 2px; }
+.tabs button { background: none; border: none; color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.tabs button.active { background: var(--accent); color: #fff; }
+.tabs button:not(.active):hover { color: var(--text); }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 220px; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; padding: 10px; }
+.main { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+.stage-btn { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 1px solid transparent; color: var(--muted); padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+.stage-btn:hover { background: var(--hover); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--text); background: rgba(91,140,255,.08); }
+.stage-btn .num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.06); font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.stage-btn.active .num { background: var(--accent); color: #fff; }
+
+.stage { max-width: 960px; }
+.stage h2 { font-size: 16px; margin-bottom: 2px; }
+.stage .desc { color: var(--muted); margin-bottom: 8px; line-height: 1.4; font-size: 12px; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; margin-bottom: 8px; }
+.card h3 { font-size: 12px; margin-bottom: 4px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.gemini-card { border-color: var(--gemini-border); background: var(--gemini-bg); }
+.gemini-card h3 { color: var(--gemini); }
+
+.spec-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.spec-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 3px 8px; border-bottom: 1px solid var(--border); }
+.spec-table td { padding: 3px 8px; border-bottom: 1px solid rgba(255,255,255,.03); }
+.spec-table td:first-child { color: var(--accent); white-space: nowrap; font-family: monospace; font-size: 11px; }
+
+.gemini-spec { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 0; }
+.gemini-badge { font-size: 10px; padding: 2px 8px; border-radius: 99px; background: rgba(167,139,250,.12); color: var(--gemini); border: 1px solid var(--gemini-border); font-weight: 600; }
+.gemini-spec select { background: rgba(0,0,0,.3); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; font-size: 11px; }
+.gemini-spec .info { font-size: 11px; color: var(--muted); }
+
+details.prompt-wrap { margin: 4px 0; }
+details.prompt-wrap summary { cursor: pointer; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; padding: 3px 0; user-select: none; }
+details.prompt-wrap summary:hover { color: var(--text); }
+details.prompt-wrap textarea { width: 100%; background: rgba(0,0,0,.3); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; resize: vertical; min-height: 50px; margin-top: 4px; }
+.copy-btn { background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text); padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; margin-top: 4px; }
+.copy-btn:hover { background: var(--hover); }
+
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 10px; text-align: center; cursor: pointer; transition: border-color .2s; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); }
+.upload-zone input { display: none; }
+.upload-zone p { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.preview-img { max-width: 100%; max-height: 180px; border-radius: 6px; border: 1px solid var(--border); margin-top: 4px; display: block; }
+.tag { font-size: 10px; padding: 2px 6px; border-radius: 99px; background: rgba(91,140,255,.15); color: var(--accent); border: 1px solid rgba(91,140,255,.2); }
+
+.btn { background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.btn:hover { background: var(--hover); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { opacity: .9; }
+.btn-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+.btn-run { background: var(--accent2); border-color: var(--accent2); color: #0b1020; font-weight: 600; }
+.btn-run:hover { opacity: .9; }
+
+label.field { display: block; font-size: 10px; color: var(--muted); margin: 4px 0 2px; text-transform: uppercase; letter-spacing: .4px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input { flex: 1; }
+.range-val { min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+.inline-io { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+.sep { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+details.debug-panel { margin-top: 8px; }
+details.debug-panel summary { cursor: pointer; font-size: 11px; color: var(--muted); padding: 4px 8px; background: var(--debug-bg); border-radius: 6px; user-select: none; }
+details.debug-panel summary:hover { color: var(--text); }
+details.debug-panel .debug-grid { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+details.debug-panel .debug-grid .debug-item { text-align: center; }
+details.debug-panel .debug-grid img { max-height: 80px; border-radius: 4px; border: 1px solid var(--border); }
+details.debug-panel .debug-grid .label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+#sphere-container { width: 100%; height: 340px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); position: relative; background: #000; }
+#sphere-container canvas { width: 100% !important; height: 100% !important; }
+@media (max-width: 768px) { .sidebar { display: none; } .grid-2, .inline-io { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>360° Pipeline Spec</h1>
+    <div class="tabs" id="tabs"></div>
+    <div style="flex:1"></div>
+    <button class="btn" id="exportBtn">Export</button>
+  </header>
+  <div class="layout">
+    <div class="sidebar"><div id="nav"></div></div>
+    <div class="main"><div class="stage" id="content"></div></div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ════════════════════════════════════════════
+   PIPELINE CONFIG — production defaults
+   ════════════════════════════════════════════ */
+const PIPELINES = {
+  equirect: {
+    name: 'Equirect',
+    desc: 'Generate 21:9 equirectangular → fix seam → letterbox to 2:1 → fill poles → reproject',
+    defaults: {
+      model: 'nano-banana-2/edit', res: '4k',
+      stripWidth: 10,
+      poleFov: 120, featherDeg: 3,
+      vertCorrection: 0, vertPower: 2,
+    },
+    geminiCalls: [
+      { id: 'generate', ar: '21:9',
+        precise: 'Generate a 360 equirectangular image of this scene, adjust view height to match human eye-level, adjust distance so the closest object is 1m away. The left and right edges must connect seamlessly.',
+        creative: 'Format: 360 equirectangular. Generate an immersive world out of this scene, make it feel like we are watching it as it happens, view height should match human eye-level, closest object is 1m away. The left and right edges must connect seamlessly.' },
+      { id: 'seam', ar: '4:3', prompt: 'The photo has a missing seam region running vertically through the center where the left and right edges meet. Seamlessly repair this seam area so the left and right halves blend naturally, continuing the scene smoothly across the repair zone.' },
+      { id: 'fill', ar: '1:1', prompt: 'Fill the missing region in this wide-angle photo. Complete the missing areas to seamlessly match the surrounding environment\'s surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE.' },
+    ],
+    processing: [
+      { id: 'seamFix', fn: 'shiftImage(feathered transparent strip) → cropRegion → compositeWithFeather → shiftImage(-0.5)', params: 'stripWidth' },
+      { id: 'letterbox', fn: 'pad to 2:1 AR with black bars', params: 'none' },
+      { id: 'renderPoles', fn: 'renderPerspectiveFromEquirect(up/down)', params: 'poleFov' },
+      { id: 'reproject', fn: 'reprojectPoleToEquirect(up) + reprojectPoleToEquirect(down)', params: 'poleFov, featherDeg' },
+    ],
+    stages: ['generate', 'seam', 'poles', 'finalize'],
+  },
+  panorama: {
+    name: 'Panorama',
+    desc: 'Generate 4:1 strip → fix seam → wrap to equirect → fill pole captures → reproject',
+    defaults: {
+      model: 'nano-banana-2/edit', res: '4k',
+      stripWidth: 10,
+      vertCoverage: 75, captureFov: 120, captureYaw: -15,
+    },
+    geminiCalls: [
+      { id: 'generate', ar: '4:1',
+        precise: 'Generate a 4:1 panoramic strip of this scene showing a full 360° horizontal view. Adjust view height to match human eye-level, adjust distance so the closest object is 1m away. The left and right edges must connect seamlessly when wrapped into a cylinder.',
+        creative: 'Format: 4:1 panoramic strip. Generate an immersive world out of this scene, photorealistic, make it feel like we are watching it as it happens, view height should match human eye-level, closest object is 1m away. The left and right edges must connect seamlessly when wrapped into a cylinder.' },
+      { id: 'seam', ar: '4:3', prompt: 'The photo has a missing seam region running vertically through the center where the left and right edges meet. Seamlessly repair this seam area so the left and right halves blend naturally, continuing the scene smoothly across the repair zone.' },
+      { id: 'fill', ar: '1:1', prompt: 'Fill the missing region in this wide-angle photo. Complete the missing areas to seamlessly match the surrounding environment\'s surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE.' },
+    ],
+    processing: [
+      { id: 'seamFix', fn: 'shiftImage(feathered transparent strip) → cropRegion → compositeWithFeather → shiftImage(-0.5)', params: 'stripWidth' },
+      { id: 'wrap', fn: 'wrapStripToEquirect (cylindrical vertical correction)', params: 'vertCoverage' },
+      { id: 'renderCaptures', fn: 'renderPerspectiveGeneral(yaw, ±90, fov)', params: 'captureFov, captureYaw' },
+      { id: 'reproject', fn: 'reprojectCapture(top) + reprojectCapture(bottom)', params: 'captureFov, captureYaw' },
+    ],
+    stages: ['generate', 'seam', 'poles', 'finalize'],
+  }
+};
+
+/* ════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════ */
+const state = {
+  wf: 'equirect', stageIdx: 0, assets: {}, prompts: {},
+  params: {
+    eq_model: 'nano-banana-2/edit', eq_res: '4k', eq_genMode: 'precise', eq_stripWidth: 10,
+    eq_poleFov: 120, eq_featherDeg: 3, eq_vertCorrection: 0, eq_vertPower: 2,
+    pn_model: 'nano-banana-2/edit', pn_res: '4k', pn_genMode: 'precise', pn_stripWidth: 10,
+    pn_vertCoverage: 75, pn_captureFov: 120, pn_captureYaw: -15,
+  },
+};
+const P = (k) => state.params[k];
+const pre = () => state.wf === 'equirect' ? 'eq' : 'pn';
+
+/* ════════════════════════════════════════════
+   ASSET MANIFEST & AUTO-LOAD
+   ════════════════════════════════════════════ */
+const ASSET_BASE = '/test-assets/workflow-assets/';
+const MANIFEST = {
+  equirect: {
+    eq_ref: 'a/1-ref.png', eq_gen_out: 'a/2-equirect.png',
+    eq_seam_crop: 'a/3-seam-crop.png', eq_seam_gemini: 'a/3-inpainted.png', eq_seam_out: 'a/3-seam-fixed.png',
+    eq_letterboxed: 'a/4-letterboxed.png',
+    eq_pole_top: 'a/5-pole-top.png', eq_pole_bottom: 'a/5-pole-bottom.png',
+    eq_filled_top: 'a/6-filled-top.png', eq_filled_bottom: 'a/6-filled-bottom.png',
+    eq_final: 'a/7-final.png',
+  },
+  panorama: {
+    pn_ref: 'b/1-ref.png', pn_gen_out: 'b/2-strip.png',
+    pn_seam_crop: 'b/3-seam-crop.png', pn_seam_gemini: 'b/3-inpainted.png', pn_seam_out: 'b/3-seam-fixed.png',
+    pn_wrapped: 'b/4-wrapped.png',
+    pn_cap_top: 'b/5-capture-top.png', pn_cap_bottom: 'b/5-capture-bottom.png',
+    pn_filled_top: 'b/6-filled-top.png', pn_filled_bottom: 'b/6-filled-bottom.png',
+    pn_final: 'b/7-final.png',
+  }
+};
+
+async function autoLoad() {
+  for (const entries of Object.values(MANIFEST)) {
+    await Promise.all(Object.entries(entries).map(async ([k, p]) => {
+      try { const r = await fetch(ASSET_BASE+p, {method:'HEAD'}); if (r.ok) await loadURL(k, ASSET_BASE+p, p.split('/').pop()); } catch(e) {}
+    }));
+  }
+  render();
+}
+
+/* ════════════════════════════════════════════
+   IMAGE UTILITIES
+   ════════════════════════════════════════════ */
+function loadImage(u) { return new Promise((r,e) => { const i=new Image(); i.onload=()=>r(i); i.onerror=e; i.src=u; }); }
+function getPixels(img) { const c=document.createElement('canvas'); c.width=img.width; c.height=img.height; const x=c.getContext('2d'); x.drawImage(img,0,0); return x.getImageData(0,0,c.width,c.height); }
+function px2canvas(px,w,h) { const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').putImageData(new ImageData(px,w,h),0,0); return c; }
+function scaleImg(img,w,h) { const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return c; }
+function escHTML(s) { return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function storeCanvas(key, canvas, name) { state.assets[key] = { name, url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height }; }
+function storeFile(key, file) { return new Promise(r => { const rd=new FileReader(); rd.onload=()=>{ const i=new Image(); i.onload=()=>{ state.assets[key]={name:file.name,url:rd.result,width:i.width,height:i.height}; r(); }; i.src=rd.result; }; rd.readAsDataURL(file); }); }
+function loadURL(key, url, name) { return new Promise(r => { const i=new Image(); i.onload=()=>{ state.assets[key]={name,url,width:i.width,height:i.height}; r(); }; i.onerror=()=>r(); i.src=url; }); }
+
+function bilinearSample(px,w,h,sx,sy) {
+  const x0=Math.floor(sx),y0=Math.floor(sy),x1=Math.min(x0+1,w-1),y1=Math.min(y0+1,h-1),fx=sx-x0,fy=sy-y0,r=[];
+  for(let c=0;c<4;c++) r.push(Math.round(px[(y0*w+x0)*4+c]*(1-fx)*(1-fy)+px[(y0*w+x1)*4+c]*fx*(1-fy)+px[(y1*w+x0)*4+c]*(1-fx)*fy+px[(y1*w+x1)*4+c]*fx*fy));
+  return r;
+}
+function dirToEquirect(x,y,z) { const l=Math.sqrt(x*x+y*y+z*z); x/=l;y/=l;z/=l; return [(Math.atan2(-z,-x)+Math.PI)/(2*Math.PI),(Math.PI/2-Math.asin(Math.max(-1,Math.min(1,y))))/Math.PI]; }
+function detectBlackRows(px,w,h) { let t=0,b=0; for(let y=0;y<h;y++){let bl=true;for(let x=0;x<w;x+=10){const i=(y*w+x)*4;if(px[i]>5||px[i+1]>5||px[i+2]>5){bl=false;break;}}if(bl)t++;else break;} for(let y=h-1;y>=0;y--){let bl=true;for(let x=0;x<w;x+=10){const i=(y*w+x)*4;if(px[i]>5||px[i+1]>5||px[i+2]>5){bl=false;break;}}if(bl)b++;else break;} return{top:t,bot:b}; }
+
+/* ════════════════════════════════════════════
+   PROCESSING FUNCTIONS
+   ════════════════════════════════════════════ */
+function shiftImage(px,w,h,frac,strip=false,stripPct=10) {
+  const out=new Uint8ClampedArray(px.length), sh=Math.round(w*frac);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){const sx=((x-sh)%w+w)%w,si=(y*w+sx)*4,di=(y*w+x)*4;out[di]=px[si];out[di+1]=px[si+1];out[di+2]=px[si+2];out[di+3]=px[si+3];}
+  if(strip){const sw=Math.round(w*stripPct/100),cx=Math.floor(w/2),half=Math.floor(sw/2),fw=Math.round(half*.6),th=half+fw;for(let y=0;y<h;y++)for(let x=cx-th;x<=cx+th;x++){if(x<0||x>=w)continue;const d=Math.abs(x-cx);let t=d<=half?1:1-(d-half)/fw;t=Math.max(0,Math.min(1,t));if(t<=0)continue;const di=(y*w+x)*4;for(let c=0;c<4;c++)out[di+c]=Math.round(out[di+c]*(1-t));}}
+  return out;
+}
+
+function cropRegion(px,sw,sh,cx,cy,cw,ch){const o=new Uint8ClampedArray(cw*ch*4);for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){const si=((cy+y)*sw+(cx+x))*4,di=(y*cw+x)*4;o[di]=px[si];o[di+1]=px[si+1];o[di+2]=px[si+2];o[di+3]=px[si+3];}return o;}
+
+function compositeWithFeather(base,bw,bh,patch,pw,ph,ox,oy,stripPct){
+  const out=new Uint8ClampedArray(base),sw=Math.round(bw*(stripPct||10)/100),f=Math.round(sw*.6),cx=Math.floor(pw/2),hs=Math.floor(sw/2),th=hs+f;
+  for(let y=0;y<ph;y++)for(let x=cx-th;x<=cx+th;x++){if(x<0||x>=pw)continue;const bx=ox+x,by=oy+y;if(bx<0||bx>=bw||by<0||by>=bh)continue;const d=Math.abs(x-cx);let a=d<=hs?1:1-(d-hs)/f;a=Math.max(0,Math.min(1,a));if(a<=0)continue;const bi=(by*bw+bx)*4,pi=(y*pw+x)*4;for(let c=0;c<4;c++)out[bi+c]=Math.round(base[bi+c]*(1-a)+patch[pi+c]*a);}
+  return out;
+}
+
+function renderPerspFromEquirect(eq,ew,eh,dir,fov,sz){
+  const th=Math.tan(fov*Math.PI/360),out=new Uint8ClampedArray(sz*sz*4),{top:tB,bot:bB}=detectBlackRows(eq,ew,eh);
+  for(let py=0;py<sz;py++)for(let px=0;px<sz;px++){const u=(2*(px+.5)/sz-1)*th,v=(2*(py+.5)/sz-1)*th;const dx=u,dy=dir==='up'?1:-1,dz=dir==='up'?v:-v;const[eu,ev]=dirToEquirect(dx,dy,dz);const eqY=ev*(eh-1),oi=(py*sz+px)*4;if((dir==='up'&&eqY<tB)||(dir==='down'&&eqY>eh-1-bB)){out[oi]=0;out[oi+1]=0;out[oi+2]=0;out[oi+3]=0;}else{const s=bilinearSample(eq,ew,eh,eu*(ew-1),ev*(eh-1));out[oi]=s[0];out[oi+1]=s[1];out[oi+2]=s[2];out[oi+3]=s[3];}}
+  return out;
+}
+
+function reprojectPole(eq,ew,eh,persp,pSz,dir,fov,feathDeg){
+  const th=Math.tan(fov*Math.PI/360),fr=feathDeg*Math.PI/180,out=new Uint8ClampedArray(eq),{top:tB}=detectBlackRows(eq,ew,eh),poleLat=Math.PI/2-(tB/eh)*Math.PI;
+  for(let ey=0;ey<eh;ey++)for(let ex=0;ex<ew;ex++){const lng=(ex/ew)*2*Math.PI-Math.PI,lat=Math.PI/2-(ey/eh)*Math.PI,al=Math.abs(lat);if(al<poleLat-fr)continue;const cL=Math.cos(lat),dx=-cL*Math.cos(lng),dy=Math.sin(lat),dz=-cL*Math.sin(lng);let pu,pv;if(lat>0&&dir==='up'){pu=dx/dy;pv=dz/dy;}else if(lat<0&&dir==='down'){pu=dx/(-dy);pv=-dz/(-dy);}else continue;if(Math.abs(pu)>th||Math.abs(pv)>th)continue;const ppx=(pu/th+1)/2*(pSz-1),ppy=(pv/th+1)/2*(pSz-1);if(ppx<0||ppx>=pSz||ppy<0||ppy>=pSz)continue;const s=bilinearSample(persp,pSz,pSz,ppx,ppy);let bl=1;if(al<poleLat){bl=(al-poleLat+fr)/fr;bl=Math.max(0,Math.min(1,bl));bl=bl*bl*(3-2*bl);}const oi=(ey*ew+ex)*4;for(let c=0;c<4;c++)out[oi+c]=Math.round(eq[oi+c]*(1-bl)+s[c]*bl);}
+  return out;
+}
+
+function wrapStripToEquirect(sp,sw,sh,ew,eh,vDeg){
+  const out=new Uint8ClampedArray(ew*eh*4),hv=(vDeg/2)*Math.PI/180,thv=Math.tan(hv);
+  for(let ey=0;ey<eh;ey++){const lat=Math.PI/2-(ey/eh)*Math.PI;if(lat>hv||lat<-hv)continue;const sv=(1-Math.tan(lat)/thv)/2*(sh-1);if(sv<0||sv>=sh)continue;for(let ex=0;ex<ew;ex++){const su=(ex/ew)*(sw-1),s=bilinearSample(sp,sw,sh,su,sv),oi=(ey*ew+ex)*4;out[oi]=s[0];out[oi+1]=s[1];out[oi+2]=s[2];out[oi+3]=s[3];}}
+  return out;
+}
+
+function renderPerspGeneral(eq,ew,eh,yawD,pitchD,fovD,sz){
+  const th=Math.tan(fovD*Math.PI/360),yaw=yawD*Math.PI/180,pitch=pitchD*Math.PI/180,out=new Uint8ClampedArray(sz*sz*4);
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  for(let py=0;py<sz;py++)for(let px=0;px<sz;px++){const u=(2*(px+.5)/sz-1)*th,v=(2*(py+.5)/sz-1)*th;let dx=u,dy=-v,dz=-1;let dx2=dx,dy2=dy*cp-dz*sp,dz2=dy*sp+dz*cp;let dx3=dx2*cy+dz2*sy,dy3=dy2,dz3=-dx2*sy+dz2*cy;const[eu,ev]=dirToEquirect(dx3,dy3,dz3),s=bilinearSample(eq,ew,eh,eu*(ew-1),ev*(eh-1)),oi=(py*sz+px)*4;out[oi]=s[0];out[oi+1]=s[1];out[oi+2]=s[2];out[oi+3]=s[3];}
+  return out;
+}
+
+function reprojectCapture(out,ew,eh,cap,cS,yawD,pitchD,fovD){
+  const fov=fovD*Math.PI/180,th=Math.tan(fov/2),yaw=yawD*Math.PI/180,pitch=pitchD*Math.PI/180;
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  for(let ey=0;ey<eh;ey++)for(let ex=0;ex<ew;ex++){const lng=(ex/ew)*2*Math.PI-Math.PI,lat=Math.PI/2-(ey/eh)*Math.PI,cL=Math.cos(lat);let wx=-cL*Math.cos(lng),wy=Math.sin(lat),wz=-cL*Math.sin(lng);let rx=wx*cy-wz*sy,ry=wy,rz=wx*sy+wz*cy;let cx2=rx,cy2=ry*cp+rz*sp,cz2=-ry*sp+rz*cp;if(cz2>=0)continue;const pu=cx2/(-cz2),pv=-cy2/(-cz2);if(Math.abs(pu)>th||Math.abs(pv)>th)continue;const ppx=(pu/th+1)/2*(cS-1),ppy=(pv/th+1)/2*(cS-1);if(ppx<0||ppx>=cS||ppy<0||ppy>=cS)continue;const s=bilinearSample(cap,cS,cS,ppx,ppy),edge=Math.min(ppx,ppy,cS-1-ppx,cS-1-ppy)/(cS*.1),bl=Math.min(1,edge),oi=(ey*ew+ex)*4;for(let c=0;c<4;c++)out[oi+c]=Math.round(out[oi+c]*(1-bl)+s[c]*bl);}
+}
+
+/* ════════════════════════════════════════════
+   SPHERE VIEWER
+   ════════════════════════════════════════════ */
+let sScene,sCam,sRen,sUni,sDrag=false,sPX=0,sPY=0,sLon=0,sLat=0;
+function initSphere(el,url){
+  if(sRen){sRen.dispose();el.querySelector('canvas')?.remove();}
+  sScene=new THREE.Scene(); sCam=new THREE.PerspectiveCamera(60,el.clientWidth/el.clientHeight,.1,1000); sCam.position.set(0,0,.01);
+  sRen=new THREE.WebGLRenderer({antialias:true}); sRen.outputColorSpace=THREE.LinearSRGBColorSpace; sRen.setSize(el.clientWidth,el.clientHeight); sRen.setPixelRatio(Math.min(devicePixelRatio,2));
+  el.insertBefore(sRen.domElement,el.firstChild);
+  const vs=`varying vec3 vD;void main(){vec4 w=modelMatrix*vec4(position,1.);vD=w.xyz-cameraPosition;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+  const fs=`uniform sampler2D tE;uniform float uS;uniform float uP;varying vec3 vD;
+    #define PI 3.14159265359
+    void main(){vec3 d=normalize(vD);float lng=atan(-d.z,-d.x);float lat=asin(clamp(d.y,-1.,1.));
+    lat=clamp(lat+uS*sin(uP*lat),-PI*.5,PI*.5);
+    float u=(lng+PI)/(2.*PI);float v=1.-(PI*.5-lat)/PI;gl_FragColor=texture2D(tE,vec2(u,v));}`;
+  sUni={tE:{value:null},uS:{value:P('eq_vertCorrection')},uP:{value:P('eq_vertPower')}};
+  const tex=new THREE.TextureLoader().load(url,()=>{sUni.tE.value=tex;});
+  const g=new THREE.SphereGeometry(50,64,32);g.scale(-1,1,1);
+  sScene.add(new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:sUni,vertexShader:vs,fragmentShader:fs})));
+  sLon=0;sLat=0;
+  const cvs=sRen.domElement;
+  cvs.addEventListener('pointerdown',e=>{sDrag=true;sPX=e.clientX;sPY=e.clientY;});
+  window.addEventListener('pointermove',e=>{if(!sDrag)return;sLon-=(e.clientX-sPX)*.25;sLat+=(e.clientY-sPY)*.25;sLat=Math.max(-85,Math.min(85,sLat));sPX=e.clientX;sPY=e.clientY;});
+  window.addEventListener('pointerup',()=>sDrag=false);
+  cvs.addEventListener('wheel',e=>{sCam.fov=Math.max(30,Math.min(110,sCam.fov+e.deltaY*.05));sCam.updateProjectionMatrix();});
+  (function anim(){requestAnimationFrame(anim);const phi=THREE.MathUtils.degToRad(90-sLat),th=THREE.MathUtils.degToRad(sLon);sCam.lookAt(50*Math.sin(phi)*Math.cos(th),50*Math.cos(phi),50*Math.sin(phi)*Math.sin(th));sRen.render(sScene,sCam);})();
+}
+
+/* ════════════════════════════════════════════
+   UI HELPERS
+   ════════════════════════════════════════════ */
+const A = (k) => state.assets[k];
+function imgTag(k,lbl) { const a=A(k); if(!a) return `<span style="color:var(--muted);font-size:11px">${lbl}: —</span>`; return `<div><div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span class="tag">${lbl} ${a.width}×${a.height}</span><button class="btn" style="padding:2px 8px;font-size:10px" onclick="W._dl('${k}')">↓</button></div><img class="preview-img" src="${a.url}"></div>`; }
+function uploadBox(k,lbl) { const a=A(k); if(a) return `<div>${imgTag(k,lbl)}<div class="upload-zone" data-key="${k}" style="padding:3px 8px;border-radius:5px;display:inline-block;margin-top:4px"><input type="file" accept="image/*"><span style="font-size:10px;color:var(--muted);cursor:pointer">Replace</span></div></div>`; return `<div class="upload-zone" data-key="${k}" style="padding:10px"><input type="file" accept="image/*"><strong style="font-size:11px">${lbl}</strong><p>Drop or click</p></div>`; }
+function geminiRow(modelKey,resKey,ar) { const m=P(modelKey)||'nano-banana-2/edit',r=P(resKey)||'4k'; return `<div class="gemini-spec"><span class="gemini-badge">✦ Gemini</span><select onchange="W._p('${modelKey}',this.value)"><option value="nano-banana-2/edit"${m==='nano-banana-2/edit'?' selected':''}>nano-banana-2/edit</option><option value="flash"${m==='flash'?' selected':''}>Flash</option><option value="pro"${m==='pro'?' selected':''}>Pro</option></select><span class="info">AR: <b>${ar}</b></span><select onchange="W._p('${resKey}',this.value)"><option value="1k"${r==='1k'?' selected':''}>1k</option><option value="2k"${r==='2k'?' selected':''}>2k</option><option value="4k"${r==='4k'?' selected':''}>4k</option></select></div>`; }
+function promptBox(k,def,lbl) { if(!state.prompts[k]) state.prompts[k]=def; return `<details class="prompt-wrap" ${state._op?.[k]?'open':''}><summary onclick="if(!state._op)state._op={};state._op['${k}']=!this.parentElement.open">${lbl}</summary><textarea id="p_${k}" oninput="W._sp('${k}',this.value)">${escHTML(state.prompts[k])}</textarea><button class="copy-btn" onclick="W._cp('p_${k}')">Copy</button></details>`; }
+function slider(k,lbl,min,max,step,sfx='') { const v=P(k); return `<label class="field">${lbl}</label><div class="range-row"><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" oninput="W._p('${k}',+this.value);this.nextElementSibling.textContent=this.value+'${sfx}'"><span class="range-val">${v}${sfx}</span></div>`; }
+function debugPanel(items) { const valid=items.filter(([k])=>A(k)); if(!valid.length) return ''; return `<details class="debug-panel"><summary>Debug: ${valid.length} intermediate assets</summary><div class="debug-grid">${valid.map(([k,l])=>`<div class="debug-item"><img src="${A(k).url}"><div class="label">${l}</div></div>`).join('')}</div></details>`; }
+
+function bindUploads() {
+  document.querySelectorAll('.upload-zone').forEach(z => {
+    const k=z.dataset.key, inp=z.querySelector('input');
+    z.addEventListener('click',e=>{if(e.target.tagName!=='INPUT')inp.click();});
+    inp.addEventListener('change',async e=>{if(e.target.files[0]){await storeFile(k,e.target.files[0]);render();}});
+    ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('drag');}));
+    ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('drag');}));
+    z.addEventListener('drop',async e=>{const f=e.dataTransfer.files[0];if(f?.type.startsWith('image/')){await storeFile(k,f);render();}});
+  });
+}
+
+/* ════════════════════════════════════════════
+   RENDER ENGINE
+   ════════════════════════════════════════════ */
+const STAGES = {
+  equirect: [
+    { id:'generate', title:'1. Generate', gemini:true },
+    { id:'seam',     title:'2. Seam Fix', gemini:true },
+    { id:'poles',    title:'3. Fill Poles', gemini:true },
+    { id:'finalize', title:'4. Finalize' },
+  ],
+  panorama: [
+    { id:'generate', title:'1. Generate', gemini:true },
+    { id:'seam',     title:'2. Seam Fix', gemini:true },
+    { id:'poles',    title:'3. Fill Poles', gemini:true },
+    { id:'finalize', title:'4. Finalize' },
+  ],
+};
+
+function render() {
+  const stages = STAGES[state.wf];
+  document.getElementById('tabs').innerHTML = Object.entries(PIPELINES).map(([k,v]) => `<button class="${k===state.wf?'active':''}" onclick="W._wf('${k}')">${v.name}</button>`).join('');
+  document.getElementById('nav').innerHTML = stages.map((s,i) => `<button class="stage-btn${i===state.stageIdx?' active':''}" onclick="W._go(${i})"><span class="num">${i+1}</span>${s.title}${s.gemini?' ✦':''}</button>`).join('');
+  const s = stages[state.stageIdx];
+  const fn = state.wf==='equirect' ? EQ_RENDER[s.id] : PN_RENDER[s.id];
+  document.getElementById('content').innerHTML = `<div class="card" style="padding:6px 10px;margin-bottom:10px;font-size:11px;color:var(--muted)"><b style="color:var(--text)">${PIPELINES[state.wf].name}</b> — ${PIPELINES[state.wf].desc}</div>` + (fn ? fn() : '');
+  bindUploads();
+}
+
+const W = window; window.W = W;
+W._r = () => render();
+W._wf = (k) => { state.wf=k; state.stageIdx=0; render(); };
+W._go = (i) => { state.stageIdx=i; render(); };
+W._p = (k,v) => { state.params[k]=v; };
+W._sp = (k,v) => { state.prompts[k]=v; };
+W._cp = (id) => { const t=document.getElementById(id); if(t) navigator.clipboard.writeText(t.value); };
+W._dl = (k) => { const a=A(k); if(a){const l=document.createElement('a');l.href=a.url;l.download=a.name;l.click();} };
+W._sphere = (k) => { const a=A(k);if(!a)return;const c=document.getElementById('sphere-container');if(!c)return;c.innerHTML='';initSphere(c,a.url); };
+W._sphereCorr = () => { if(sUni){sUni.uS.value=P('eq_vertCorrection');sUni.uP.value=P('eq_vertPower');} };
+
+/* ════════════════════════════════════════════
+   EQUIRECT STAGES
+   ════════════════════════════════════════════ */
+const EQ_RENDER = {};
+
+EQ_RENDER.generate = () => {
+  const pipe = PIPELINES.equirect.geminiCalls[0];
+  const mode = P('eq_genMode') || 'precise';
+  return `<h2>Stage 1: Generate Equirect</h2>
+    <p class="desc">Gemini generates a 21:9 equirectangular panorama from a reference image.</p>
+    ${geminiRow('eq_model','eq_res',pipe.ar)}
+    <div class="card">
+      <label class="field">Prompt style</label>
+      <div style="display:flex;gap:3px;margin-bottom:6px">
+        <button class="btn${mode==='precise'?' btn-primary':''}" style="padding:4px 10px;font-size:11px" onclick="W._p('eq_genMode','precise');W._r()">Precise</button>
+        <button class="btn${mode==='creative'?' btn-primary':''}" style="padding:4px 10px;font-size:11px" onclick="W._p('eq_genMode','creative');W._r()">Creative</button>
+      </div>
+      ${promptBox('eq_gen_'+mode, pipe[mode], mode==='precise'?'Precise prompt':'Creative prompt')}
+    </div>
+    <div class="inline-io" style="margin-top:6px">
+      <div class="card"><h3>Input</h3>${uploadBox('eq_ref','Reference')}</div>
+      <div class="card"><h3>Gemini Result</h3>${uploadBox('eq_gen_out','21:9 Equirect')}</div>
+    </div>
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Param</th><th>Value</th></tr>
+      <tr><td>input</td><td>Reference image (any AR)</td></tr>
+      <tr><td>output</td><td>21:9 equirectangular (~2.33:1)</td></tr>
+      <tr><td>model</td><td>nano-banana-2/edit (default) | flash | pro</td></tr>
+      <tr><td>resolution</td><td>4k (default) | 2k | 1k</td></tr>
+      <tr><td>promptMode</td><td>precise (faithful) | creative (immersive)</td></tr></table>
+    </div>`;
+};
+
+EQ_RENDER.seam = () => {
+  const pipe = PIPELINES.equirect.geminiCalls[1];
+  return `<h2>Stage 2: Seam Fix</h2>
+    <p class="desc">Shift 50% → crop 4:3 center with feathered transparent strip → Gemini fills the missing region → composite with feather → unshift.</p>
+    ${geminiRow('eq_model', 'eq_res', pipe.ar)}
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:100px">${slider('eq_stripWidth','Strip width %',1,15,0.5,'%')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-run" onclick="W._eqSeamCrop()" ${A('eq_gen_out')?'':'disabled'}>Run: Shift & Crop</button>
+          ${A('eq_seam_gemini')?`<button class="btn btn-run" onclick="W._eqSeamComp()">Run: Composite & Unshift</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${promptBox('eq_seam', pipe.prompt, 'Prompt')}
+    <div class="inline-io" style="margin-top:6px">
+      <div class="card"><h3>Gemini Input</h3>${A('eq_seam_crop')?imgTag('eq_seam_crop','Crop w/ transparent strip'):'<span style="color:var(--muted);font-size:11px">Run Shift & Crop first</span>'}</div>
+      <div class="card"><h3>Gemini Result</h3>${uploadBox('eq_seam_gemini','Inpainted 4:3')}</div>
+    </div>
+    ${A('eq_seam_out')?`<div class="card"><h3>Output</h3>${imgTag('eq_seam_out','Seam-fixed')}</div>`:''}
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Step</th><th>Function</th><th>Params</th></tr>
+      <tr><td>shift</td><td>shiftImage(data, w, h, 0.5, true, stripWidth)</td><td>stripWidth — feathered transparent strip</td></tr>
+      <tr><td>crop</td><td>cropRegion(shifted, w, h, x0, 0, cropW, cropH)</td><td>cropAR: 4:3</td></tr>
+      <tr><td>composite</td><td>compositeWithFeather(shifted, ..., stripWidth)</td><td>horizontal feather only</td></tr>
+      <tr><td>unshift</td><td>shiftImage(composited, w, h, -0.5)</td><td>—</td></tr></table>
+    </div>`;
+};
+
+W._eqSeamCrop = async () => {
+  const s=A('eq_gen_out'); if(!s) return;
+  const img=await loadImage(s.url), {data,width,height}=getPixels(img);
+  const shifted=shiftImage(data,width,height,0.5,true,P('eq_stripWidth'));
+  const cH=height, cW=Math.round(cH*4/3), x0=Math.floor((width-cW)/2);
+  storeCanvas('eq_seam_crop', px2canvas(cropRegion(shifted,width,height,x0,0,cW,cH),cW,cH), 'seam-crop.png');
+  render();
+};
+
+W._eqSeamComp = async () => {
+  const s=A('eq_gen_out'), f=A('eq_seam_gemini'); if(!s||!f) return;
+  const si=await loadImage(s.url), {data,width,height}=getPixels(si);
+  const shifted=shiftImage(data,width,height,0.5);
+  const fi=await loadImage(f.url), cH=height, cW=Math.round(cH*4/3);
+  const scaled=scaleImg(fi,cW,cH), fd=getPixels(scaled);
+  const x0=Math.floor((width-cW)/2);
+  const comp=compositeWithFeather(shifted,width,height,fd.data,fd.width,fd.height,x0,0,P('eq_stripWidth'));
+  storeCanvas('eq_seam_out', px2canvas(shiftImage(comp,width,height,-0.5),width,height), 'seam-fixed.png');
+  render();
+};
+
+EQ_RENDER.poles = () => {
+  const fill = PIPELINES.equirect.geminiCalls[2];
+  return `<h2>Stage 3: Fill Poles</h2>
+    <p class="desc">Letterbox to 2:1 → render perspective pole views with transparent holes → Gemini fills the missing regions → upload results.</p>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:100px">${slider('eq_poleFov','Pole FOV',90,150,5,'°')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-run" onclick="W._eqPoles()" ${A('eq_seam_out')||A('eq_gen_out')?'':'disabled'}>Run: Letterbox + Render Poles</button>
+        </div>
+      </div>
+    </div>
+    ${geminiRow('eq_model','eq_res','1:1')}
+    ${promptBox('eq_fill', fill.prompt, 'Fill prompt (used for both top & bottom)')}
+    <div class="grid-2">
+      <div class="card gemini-card"><h3>Top (ceiling)</h3>
+        ${A('eq_pole_top')?imgTag('eq_pole_top','Input'):'<span style="color:var(--muted);font-size:11px">Run above first</span>'}
+        <hr class="sep">${uploadBox('eq_filled_top','Filled top')}
+      </div>
+      <div class="card gemini-card"><h3>Bottom (floor)</h3>
+        ${A('eq_pole_bottom')?imgTag('eq_pole_bottom','Input'):'<span style="color:var(--muted);font-size:11px">Run above first</span>'}
+        <hr class="sep">${uploadBox('eq_filled_bottom','Filled bottom')}
+      </div>
+    </div>
+    ${debugPanel([['eq_letterboxed','Letterboxed 2:1']])}
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Step</th><th>Function</th><th>Params</th></tr>
+      <tr><td>letterbox</td><td>pad to width/2 height, black bars</td><td>—</td></tr>
+      <tr><td>renderPoles</td><td>renderPerspFromEquirect(dir, poleFov, min(4096, eqWidth))</td><td>poleFov, size capped at 4096 (Gemini 1:1 max)</td></tr>
+      <tr><td>gemini×2</td><td>fill transparent region (top, bottom)</td><td>model, res, 1:1</td></tr></table>
+    </div>`;
+};
+
+W._eqPoles = async () => {
+  const src=A('eq_seam_out')||A('eq_gen_out'); if(!src) return;
+  const img=await loadImage(src.url), {data:d,width:w,height:h}=getPixels(img);
+  const tH=Math.round(w/2),pad=Math.round((tH-h)/2);
+  const c=document.createElement('canvas');c.width=w;c.height=tH;const ctx=c.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,w,tH);ctx.drawImage(img,0,pad);
+  storeCanvas('eq_letterboxed',c,'letterboxed.png');
+  const lb=getPixels(c), fov=P('eq_poleFov'), sz=Math.min(4096,w);
+  for(const dir of ['up','down']) storeCanvas(`eq_pole_${dir==='up'?'top':'bottom'}`, px2canvas(renderPerspFromEquirect(lb.data,lb.width,lb.height,dir,fov,sz),sz,sz), `pole-${dir}.png`);
+  render();
+};
+
+EQ_RENDER.finalize = () => {
+  const ready = A('eq_letterboxed')&&A('eq_filled_top')&&A('eq_filled_bottom');
+  return `<h2>Stage 4: Finalize</h2>
+    <p class="desc">Reproject filled poles back onto the equirect and preview on sphere.</p>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:100px">${slider('eq_featherDeg','Blend feather',1,10,0.5,'°')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-run" onclick="W._eqReproject()" ${ready?'':'disabled'}>Run: Reproject</button>
+          ${A('eq_final')?`<button class="btn btn-primary" onclick="W._sphere('eq_final')">View on Sphere</button>`:''}
+        </div>
+      </div>
+      ${A('eq_final')?`<div style="margin-top:6px">${imgTag('eq_final','Final equirect')}</div>`:''}
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:80px">${slider('eq_vertCorrection','V correction',-0.15,0.15,0.001,'')}</div>
+        <div style="flex:1;min-width:80px">${slider('eq_vertPower','Shape',1,4,0.1,'')}</div>
+        <button class="btn" onclick="W._sphereCorr()" style="flex-shrink:0">Apply</button>
+      </div>
+      <div id="sphere-container" style="margin-top:6px"><p style="padding:12px;color:var(--muted);font-size:11px">Click "View on Sphere"</p></div>
+    </div>
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Step</th><th>Function</th><th>Params</th></tr>
+      <tr><td>reproject</td><td>reprojectPole(eq, top, 'up', poleFov, featherDeg) + reprojectPole(eq, bot, 'down', ...)</td><td>poleFov, featherDeg</td></tr>
+      <tr><td>output</td><td>4096×2048 equirectangular PNG</td><td>—</td></tr></table>
+    </div>`;
+};
+
+W._eqReproject = async () => {
+  const eq=A('eq_letterboxed'),t=A('eq_filled_top'),b=A('eq_filled_bottom'); if(!eq||!t||!b) return;
+  const ei=await loadImage(eq.url),ti=await loadImage(t.url),bi=await loadImage(b.url);
+  const ed=getPixels(ei),td=getPixels(ti),bd=getPixels(bi);
+  const fov=P('eq_poleFov'),f=P('eq_featherDeg');
+  let r=new Uint8ClampedArray(ed.data);
+  r=reprojectPole(r,ed.width,ed.height,td.data,td.width,'up',fov,f);
+  r=reprojectPole(r,ed.width,ed.height,bd.data,bd.width,'down',fov,f);
+  storeCanvas('eq_final',px2canvas(r,ed.width,ed.height),'equirect-final.png');
+  render();
+};
+
+/* ════════════════════════════════════════════
+   PANORAMA STAGES
+   ════════════════════════════════════════════ */
+const PN_RENDER = {};
+
+PN_RENDER.generate = () => {
+  const pipe = PIPELINES.panorama.geminiCalls[0];
+  const mode = P('pn_genMode') || 'precise';
+  return `<h2>Stage 1: Generate Strip</h2>
+    <p class="desc">Gemini generates a 4:1 panoramic strip from a reference image. This is NOT equirectangular — it's a flat horizon band.</p>
+    ${geminiRow('pn_model','pn_res',pipe.ar)}
+    <div class="card">
+      <label class="field">Prompt style</label>
+      <div style="display:flex;gap:3px;margin-bottom:6px">
+        <button class="btn${mode==='precise'?' btn-primary':''}" style="padding:4px 10px;font-size:11px" onclick="W._p('pn_genMode','precise');W._r()">Precise</button>
+        <button class="btn${mode==='creative'?' btn-primary':''}" style="padding:4px 10px;font-size:11px" onclick="W._p('pn_genMode','creative');W._r()">Creative</button>
+      </div>
+      ${promptBox('pn_gen_'+mode, pipe[mode], mode==='precise'?'Precise prompt':'Creative prompt')}
+    </div>
+    <div class="inline-io" style="margin-top:6px">
+      <div class="card"><h3>Input</h3>${uploadBox('pn_ref','Reference')}</div>
+      <div class="card"><h3>Gemini Result</h3>${uploadBox('pn_gen_out','4:1 Strip')}</div>
+    </div>
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Param</th><th>Value</th></tr>
+      <tr><td>input</td><td>Reference image (any AR)</td></tr>
+      <tr><td>output</td><td>4:1 panoramic strip</td></tr>
+      <tr><td>projection</td><td>Cylindrical (linear horizontal, perspective vertical)</td></tr>
+      <tr><td>promptMode</td><td>precise (faithful) | creative (immersive)</td></tr></table>
+    </div>`;
+};
+
+PN_RENDER.seam = () => {
+  const pipe = PIPELINES.panorama.geminiCalls[1];
+  return `<h2>Stage 2: Seam Fix</h2>
+    <p class="desc">Shift 50% → crop 4:3 center with feathered transparent strip → Gemini fills the missing region → composite with feather → unshift.</p>
+    ${geminiRow('pn_model', 'pn_res', pipe.ar)}
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:100px">${slider('pn_stripWidth','Strip width %',1,15,0.5,'%')}</div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-run" onclick="W._pnSeamCrop()" ${A('pn_gen_out')?'':'disabled'}>Run: Shift & Crop</button>
+          ${A('pn_seam_gemini')?`<button class="btn btn-run" onclick="W._pnSeamComp()">Run: Composite & Unshift</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${promptBox('pn_seam', pipe.prompt, 'Prompt')}
+    <div class="inline-io" style="margin-top:6px">
+      <div class="card"><h3>Gemini Input</h3>${A('pn_seam_crop')?imgTag('pn_seam_crop','Crop w/ transparent strip'):'<span style="color:var(--muted);font-size:11px">Run Shift & Crop first</span>'}</div>
+      <div class="card"><h3>Gemini Result</h3>${uploadBox('pn_seam_gemini','Inpainted 4:3')}</div>
+    </div>
+    ${A('pn_seam_out')?`<div class="card"><h3>Output</h3>${imgTag('pn_seam_out','Seam-fixed')}</div>`:''}`;
+};
+
+W._pnSeamCrop = async () => {
+  const s=A('pn_gen_out'); if(!s) return;
+  const img=await loadImage(s.url), {data,width,height}=getPixels(img);
+  const shifted=shiftImage(data,width,height,0.5,true,P('pn_stripWidth'));
+  const cH=height, cW=Math.round(cH*4/3), x0=Math.floor((width-cW)/2);
+  storeCanvas('pn_seam_crop', px2canvas(cropRegion(shifted,width,height,x0,0,cW,cH),cW,cH), 'seam-crop.png');
+  render();
+};
+
+W._pnSeamComp = async () => {
+  const s=A('pn_gen_out'), f=A('pn_seam_gemini'); if(!s||!f) return;
+  const si=await loadImage(s.url), {data,width,height}=getPixels(si);
+  const shifted=shiftImage(data,width,height,0.5);
+  const fi=await loadImage(f.url), cH=height, cW=Math.round(cH*4/3);
+  const scaled=scaleImg(fi,cW,cH), fd=getPixels(scaled);
+  const x0=Math.floor((width-cW)/2);
+  const comp=compositeWithFeather(shifted,width,height,fd.data,fd.width,fd.height,x0,0,P('pn_stripWidth'));
+  storeCanvas('pn_seam_out', px2canvas(shiftImage(comp,width,height,-0.5),width,height), 'seam-fixed.png');
+  render();
+};
+
+PN_RENDER.poles = () => {
+  const fill = PIPELINES.panorama.geminiCalls[2];
+  return `<h2>Stage 3: Fill Poles</h2>
+    <p class="desc">Wrap strip to equirect → render perspective captures looking up/down with transparent holes → Gemini fills the missing regions.</p>
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        <div style="min-width:90px">${slider('pn_vertCoverage','Coverage',30,120,5,'°')}</div>
+        <div style="min-width:90px">${slider('pn_captureFov','FOV',85,150,5,'°')}</div>
+        <div style="min-width:90px">${slider('pn_captureYaw','Yaw',-180,180,5,'°')}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-run" onclick="W._pnPoles()" ${A('pn_seam_out')||A('pn_gen_out')?'':'disabled'}>Run: Wrap + Render Captures</button>
+        ${A('pn_wrapped')?`<button class="btn btn-primary" onclick="W._sphere('pn_wrapped')">Preview Wrap</button>`:''}
+      </div>
+    </div>
+    ${geminiRow('pn_model','pn_res','1:1')}
+    ${promptBox('pn_fill', fill.prompt, 'Fill prompt (used for both top & bottom)')}
+    <div class="grid-2">
+      <div class="card gemini-card"><h3>Top (ceiling)</h3>
+        ${A('pn_cap_top')?imgTag('pn_cap_top','Input'):'<span style="color:var(--muted);font-size:11px">Run above first</span>'}
+        <hr class="sep">${uploadBox('pn_filled_top','Filled top')}
+      </div>
+      <div class="card gemini-card"><h3>Bottom (floor)</h3>
+        ${A('pn_cap_bottom')?imgTag('pn_cap_bottom','Input'):'<span style="color:var(--muted);font-size:11px">Run above first</span>'}
+        <hr class="sep">${uploadBox('pn_filled_bottom','Filled bottom')}
+      </div>
+    </div>
+    ${debugPanel([['pn_wrapped','Wrapped equirect']])}
+    <div id="sphere-container" style="margin-top:8px"><p style="padding:12px;color:var(--muted);font-size:11px">Click "Preview Wrap" to view</p></div>
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Step</th><th>Function</th><th>Params</th></tr>
+      <tr><td>wrap</td><td>wrapStripToEquirect(strip, srcWidth, srcWidth/2, vertCoverage)</td><td>vertCoverage, output = srcWidth × srcWidth/2 (e.g. 8192×4096 at 4k)</td></tr>
+      <tr><td>captures</td><td>renderPerspGeneral(wrapped, yaw, ±90, captureFov, min(4096, eqWidth))</td><td>captureFov, captureYaw, size capped at 4096 (Gemini 1:1 max)</td></tr>
+      <tr><td>gemini×2</td><td>fill transparent regions (top, bottom)</td><td>model, res, 1:1</td></tr></table>
+    </div>`;
+};
+
+W._pnPoles = async () => {
+  const src=A('pn_seam_out')||A('pn_gen_out'); if(!src) return;
+  const img=await loadImage(src.url), {data,width,height}=getPixels(img);
+  const eqW=width, eqH=Math.round(width/2);
+  storeCanvas('pn_wrapped', px2canvas(wrapStripToEquirect(data,width,height,eqW,eqH,P('pn_vertCoverage')),eqW,eqH), 'wrapped.png');
+  const wd=getPixels(await loadImage(state.assets.pn_wrapped.url));
+  const sz=Math.min(4096,eqW), fov=P('pn_captureFov'), yaw=P('pn_captureYaw');
+  for(const [pitch,k,n] of [[90,'pn_cap_top','cap-top.png'],[-90,'pn_cap_bottom','cap-bottom.png']])
+    storeCanvas(k, px2canvas(renderPerspGeneral(wd.data,wd.width,wd.height,yaw,pitch,fov,sz),sz,sz), n);
+  render();
+};
+
+PN_RENDER.finalize = () => {
+  const ready = A('pn_wrapped')&&A('pn_filled_top')&&A('pn_filled_bottom');
+  return `<h2>Stage 4: Finalize</h2>
+    <p class="desc">Reproject both filled captures back onto the wrapped equirect.</p>
+    <div class="card">
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn-run" onclick="W._pnReproject()" ${ready?'':'disabled'}>Run: Reproject Both</button>
+        ${A('pn_final')?`<button class="btn btn-primary" onclick="W._sphere('pn_final')">View on Sphere</button>`:''}
+      </div>
+      ${A('pn_final')?`<div style="margin-top:6px">${imgTag('pn_final','Final equirect')}</div>`:''}
+    </div>
+    <div class="card">
+      <div id="sphere-container"><p style="padding:12px;color:var(--muted);font-size:11px">Click "View on Sphere"</p></div>
+    </div>
+    <div class="card" style="margin-top:8px"><h3>Pipeline spec</h3>
+      <table class="spec-table"><tr><th>Step</th><th>Function</th><th>Params</th></tr>
+      <tr><td>reproject</td><td>reprojectCapture(out, top, yaw, 90, captureFov) + reprojectCapture(out, bot, yaw, -90, ...)</td><td>captureFov, captureYaw</td></tr>
+      <tr><td>output</td><td>4096×2048 equirectangular PNG</td><td>—</td></tr></table>
+    </div>`;
+};
+
+W._pnReproject = async () => {
+  const eq=A('pn_wrapped'),t=A('pn_filled_top'),b=A('pn_filled_bottom');
+  if(!eq||!t||!b){console.warn('Missing',{eq:!!eq,t:!!t,b:!!b});return;}
+  try {
+  const ei=await loadImage(eq.url),ti=await loadImage(t.url),bi=await loadImage(b.url);
+  const ed=getPixels(ei);
+  const td=getPixels(ti), bd=getPixels(bi);
+  const tS=td.width, bS=bd.width;
+  const ew=ed.width,eh=ed.height,fov=P('pn_captureFov'),yaw=P('pn_captureYaw');
+  const out=new Uint8ClampedArray(ed.data);
+  reprojectCapture(out,ew,eh,td.data,tS,yaw,90,fov);
+  reprojectCapture(out,ew,eh,bd.data,bS,yaw,-90,fov);
+  storeCanvas('pn_final',px2canvas(out,ew,eh),'equirect-final-pn.png');
+  render();
+  } catch(e){console.error(e);alert('Failed: '+e.message);}
+};
+
+/* ════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════ */
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const e={workflow:state.wf,params:state.params,prompts:state.prompts,assets:Object.keys(state.assets)};
+  const b=new Blob([JSON.stringify(e,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pipeline-session.json';a.click();
+});
+
+render();
+autoLoad();
+</script>
+</body>
+</html>

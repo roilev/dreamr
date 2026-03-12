@@ -13,7 +13,7 @@ import { InputCanvasView } from "./input-canvas-view";
 import { Loader2, ImagePlus, Minus, Plus } from "lucide-react";
 import { SplatWorld } from "./splat-world";
 import { PlatformControls } from "./controls";
-import * as THREE from "three";
+import { NoToneMapping } from "three";
 import type { ViewerMode, ViewerInputImage } from "@/lib/types/stores";
 
 function CameraAligner() {
@@ -360,6 +360,7 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
       <Canvas
         camera={{ position: [0, 0, 0.1], fov: 75 }}
         frameloop={mode === "video" ? "always" : "demand"}
+        gl={{ toneMapping: NoToneMapping }}
       >
         <Suspense fallback={null}>
           <CameraAligner />
