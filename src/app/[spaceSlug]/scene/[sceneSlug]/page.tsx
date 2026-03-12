@@ -6,14 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { SceneEditor, SceneName } from "@/components/scene/scene-editor";
-import { AssetGallery } from "@/components/scene/asset-gallery";
-import { GenerationHistory } from "@/components/scene/generation-history";
+import { UnifiedPanel } from "@/components/scene/unified-panel";
 import { useScene } from "@/hooks/use-scene";
 import { useGenerationTracker } from "@/hooks/use-generation-tracker";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import type { SpaceRow } from "@/lib/supabase/types";
 
-type SidePanel = "assets" | "history" | null;
+type SidePanel = "assets" | "history" | "panel" | null;
 
 export default function SceneEditorPage({
   params,
@@ -98,7 +97,7 @@ export default function SceneEditorPage({
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
                 <span className="text-sm font-semibold text-[var(--text-primary)]">
-                  {sidePanel === "assets" ? "Asset Gallery" : "Generation History"}
+                  Gallery
                 </span>
                 <button
                   onClick={() => setSidePanel(null)}
@@ -108,14 +107,12 @@ export default function SceneEditorPage({
                 </button>
               </div>
               <div className="h-[calc(100%-52px)] overflow-hidden">
-                {sidePanel === "assets" ? (
-                  <AssetGallery
-                    sceneId={sceneSlug}
-                    onClose={() => setSidePanel(null)}
-                  />
-                ) : (
-                  <GenerationHistory sceneId={sceneSlug} />
-                )}
+                <UnifiedPanel
+                  sceneId={sceneSlug}
+                  activeSteps={activeSteps}
+                  onClose={() => setSidePanel(null)}
+                  defaultTab={sidePanel === "history" ? "history" : sidePanel === "assets" ? "assets" : "jobs"}
+                />
               </div>
             </motion.div>
           </>

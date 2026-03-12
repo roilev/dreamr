@@ -8,7 +8,6 @@ import { useViewerStore } from "@/lib/stores/viewer-store";
 import { useSceneStore } from "@/lib/stores/scene-store";
 import { EquirectView } from "./equirect-view";
 import { VideoSphere } from "./video-sphere";
-import { DepthView } from "./depth-view";
 import { InputCanvasView } from "./input-canvas-view";
 import { Loader2, ImagePlus, Minus, Plus } from "lucide-react";
 import { SplatWorld } from "./splat-world";
@@ -40,16 +39,18 @@ function CameraAligner() {
 function ViewerContent() {
   const { mode, equirectUrl, videoUrl, depthUrl } = useViewerStore();
 
-  if (mode === "equirect" && equirectUrl) {
-    return <EquirectView url={equirectUrl} />;
+  if ((mode === "equirect" || mode === "depth") && equirectUrl) {
+    return (
+      <EquirectView
+        url={equirectUrl}
+        depthUrl={depthUrl}
+        depthEnabled={mode === "depth" && !!depthUrl}
+      />
+    );
   }
 
   if (mode === "video" && videoUrl) {
     return <VideoSphere key={videoUrl} url={videoUrl} />;
-  }
-
-  if (mode === "depth" && depthUrl) {
-    return <DepthView url={depthUrl} />;
   }
 
   return null;

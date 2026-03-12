@@ -289,6 +289,52 @@ function DebugTab({
         </DebugSection>
       )}
 
+      {/* Pipeline Steps (mid-generation debug with thumbnails) */}
+      {(() => {
+        const imageJobs = jobs.filter((j) => j.step === "image_360" && j.output_metadata);
+        const latestImageJob = imageJobs[0];
+        const meta = latestImageJob?.output_metadata as Record<string, unknown> | null;
+        if (!meta) return null;
+
+        const stepEntries = Object.entries(meta).filter(([k]) => k.startsWith("step_"));
+        if (stepEntries.length === 0) return null;
+
+        return (
+          <DebugSection title="Pipeline Steps" defaultOpen count={stepEntries.length}>
+            <div className="space-y-2">
+              {stepEntries.map(([key, val]) => {
+                const step = val as Record<string, unknown>;
+                const prompt = step.prompt as string | undefined;
+                const urls = Object.entries(step).filter(
+                  ([k, v]) => k.endsWith("_url") && typeof v === "string",
+                );
+                return (
+                  <div key={key} className="rounded-lg bg-black/20 px-2.5 py-2 space-y-1">
+                    <span className="font-medium text-[var(--text-primary)]">{key.replace("step_", "").replace(/_/g, " ")}</span>
+                    {prompt && (
+                      <details>
+                        <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Prompt</summary>
+                        <p className="text-[var(--text-secondary)] bg-black/30 rounded px-2 py-1 mt-1 break-words text-[9px]">{prompt}</p>
+                      </details>
+                    )}
+                    {urls.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {urls.map(([urlKey, urlVal]) => (
+                          <a key={urlKey} href={urlVal as string} target="_blank" rel="noopener noreferrer" className="block">
+                            <img src={urlVal as string} alt={urlKey} className="h-12 rounded border border-white/10 object-cover" />
+                            <span className="text-[8px] text-[var(--text-muted)] block mt-0.5">{urlKey.replace(/_url$/, "")}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </DebugSection>
+        );
+      })()}
+
       {/* Generation jobs filtered to current layer */}
       <DebugSection title={activeAsset ? "Layer History" : "Generation History"} count={relevantJobs.length}>
         {relevantJobs.length === 0 ? (
@@ -310,6 +356,12 @@ function DebugTab({
                   </span>
                 </div>
                 {job.model_id && <KV label="Model" value={job.model_id.split("/").pop() ?? job.model_id} />}
+                {(job.input_metadata as Record<string, unknown> | null)?.workflow && (
+                  <KV label="Workflow" value={String((job.input_metadata as Record<string, unknown>).workflow)} />
+                )}
+                {(job.input_metadata as Record<string, unknown> | null)?.prompt_mode && (
+                  <KV label="Mode" value={String((job.input_metadata as Record<string, unknown>).prompt_mode)} />
+                )}
                 {job.provider_request_id && (
                   <KV label="Req ID" value={job.provider_request_id.slice(0, 16) + "..."} copy />
                 )}
@@ -505,22 +557,13 @@ export function AppHeader({
         {/* Right: actions */}
         <div className="flex items-center gap-2">
           {sceneId && onOpenPanel && (
-            <>
-              <button
-                onClick={() => onOpenPanel("assets")}
-                className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
-              >
-                <FolderOpen size={11} />
-                Assets
-              </button>
-              <button
-                onClick={() => onOpenPanel("history")}
-                className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
-              >
-                <Clock size={11} />
-                History
-              </button>
-            </>
+            <button
+              onClick={() => onOpenPanel("assets")}
+              className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-xs font-medium text-white/70 hover:bg-black/60 hover:text-white border border-white/15 transition-all"
+            >
+              <FolderOpen size={11} />
+              <span className="hidden sm:inline">Gallery</span>
+            </button>
           )}
           {sceneId && (
             <button
