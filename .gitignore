@@ -33,6 +33,11 @@ yarn-error.log*
 # local files (plans, notes, scratch — never commit)
 /local/
 
+# test assets (large PNGs from POC experiments)
+/public/test-assets/**/*.png
+/public/test-assets/workflow-assets/
+/scripts/
+
 # env files (can opt-in for committing if needed)
 .env*
 
