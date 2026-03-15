@@ -566,7 +566,7 @@ export function ControlCenter({
       if (isStepActive("image_360")) return;
       onGenerationStarted?.("image_360");
       try {
-        if (prompt.trim()) await updateScene.mutateAsync({ prompt: prompt.trim() });
+        await updateScene.mutateAsync({ prompt: prompt.trim() || "" });
         runStep.mutate(
           { step: "image_360", options: { workflow, promptMode } },
           {

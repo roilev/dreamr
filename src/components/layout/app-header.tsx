@@ -12,27 +12,24 @@ interface AppHeaderProps {
   overlay?: boolean;
 }
 
-function NavPill({
+function GlowWrap({
   children,
   href,
-  className = "",
 }: {
   children: React.ReactNode;
   href?: string;
-  className?: string;
 }) {
   const inner = (
-    <span
-      className={`flex items-center px-3 py-1 rounded-full bg-black/50 backdrop-blur-md ${className}`}
-    >
-      <span className="flex items-center gap-1">{children}</span>
+    <span className="relative inline-flex items-center">
+      <span className="absolute -inset-x-3 -inset-y-2 rounded-xl bg-black/60 blur-lg pointer-events-none" />
+      <span className="relative flex items-center gap-1">{children}</span>
     </span>
   );
 
   if (href) {
     return <Link href={href} className="shrink-0">{inner}</Link>;
   }
-  return <div className="shrink-0 cursor-default">{inner}</div>;
+  return <span className="shrink-0">{inner}</span>;
 }
 
 /* ── Main header ── */
@@ -53,50 +50,48 @@ export function AppHeader({
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
       >
         {/* Left: logo + nav */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/spaces"
-            className="shrink-0 flex items-center px-3 py-1 rounded-full bg-black/50 backdrop-blur-md"
-          >
+        <div className="flex items-center gap-3">
+          <GlowWrap href="/spaces">
             <span
-              className="text-xl italic font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
+              className="text-2xl italic font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               Dreamr
             </span>
-          </Link>
+          </GlowWrap>
 
           {hasNav && (
-            <>
+            <div className="flex items-center gap-1.5">
               <span className="text-white/25 select-none text-sm font-light">/</span>
-              <NavPill href={`/${spaceId}`}>
-                <span className="text-[12px] uppercase tracking-wide font-light text-white/70">
+              <GlowWrap href={`/${spaceId}`}>
+                <span className="text-[13px] uppercase tracking-wide font-light text-white/70">
                   {spaceName}
                 </span>
-              </NavPill>
+              </GlowWrap>
 
               {hasScene && (
                 <>
                   <span className="text-white/25 select-none text-sm font-light">/</span>
-                  <NavPill>
+                  <GlowWrap>
                     {sceneNameSlot || (
-                      <span className="text-[12px] uppercase tracking-wide font-semibold text-white/90 truncate max-w-[200px] sm:max-w-[260px]">
+                      <span className="text-[13px] uppercase tracking-wide font-semibold text-white/90 truncate max-w-[200px] sm:max-w-[260px]">
                         {sceneName}
                       </span>
                     )}
                     <Pencil size={9} className="text-white/25 hover:text-white/60 transition-colors ml-1" />
-                  </NavPill>
+                  </GlowWrap>
                 </>
               )}
-            </>
+            </div>
           )}
         </div>
 
         {/* Right: user button */}
         <div className="flex items-center">
-          <div className="flex items-center px-2 py-1 rounded-full bg-black/50 backdrop-blur-md">
-            <CustomUserButton />
-          </div>
+          <span className="relative inline-flex items-center">
+            <span className="absolute -inset-x-3 -inset-y-2 rounded-xl bg-black/60 blur-lg pointer-events-none" />
+            <span className="relative"><CustomUserButton /></span>
+          </span>
         </div>
       </header>
     );
