@@ -101,9 +101,6 @@ export interface ViewerStore {
 
   videoElement: HTMLVideoElement | null;
   setVideoElement: (el: HTMLVideoElement | null) => void;
-
-  gyroEnabled: boolean;
-  setGyroEnabled: (enabled: boolean) => void;
 }
 
 export interface ViewerInputImage {

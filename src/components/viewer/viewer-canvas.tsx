@@ -14,8 +14,6 @@ import { SplatWorld } from "./splat-world";
 import { PlatformControls } from "./controls";
 import { GenerationLoading } from "./generation-loading";
 import { InputSlotGrid, type SlotImage, type SlotPosition } from "./input-slot-grid";
-import { usePlatform } from "@/hooks/use-platform";
-import { cn } from "@/lib/utils/cn";
 import { NoToneMapping } from "three";
 import type { ViewerMode, ViewerInputImage } from "@/lib/types/stores";
 
@@ -322,66 +320,6 @@ function LoadingFallback() {
   );
 }
 
-async function requestGyroscopePermission(): Promise<boolean> {
-  if (
-    typeof DeviceOrientationEvent !== "undefined" &&
-    "requestPermission" in DeviceOrientationEvent
-  ) {
-    try {
-      const permission = await (
-        DeviceOrientationEvent as unknown as {
-          requestPermission: () => Promise<string>;
-        }
-      ).requestPermission();
-      return permission === "granted";
-    } catch {
-      return false;
-    }
-  }
-  return true;
-}
-
-function GyroscopeToggle() {
-  const { gyroEnabled, setGyroEnabled } = useViewerStore();
-  const [available, setAvailable] = useState(false);
-
-  useEffect(() => {
-    setAvailable("DeviceOrientationEvent" in window);
-  }, []);
-
-  if (!available) return null;
-
-  const handleToggle = async () => {
-    if (gyroEnabled) {
-      setGyroEnabled(false);
-      return;
-    }
-    const granted = await requestGyroscopePermission();
-    if (granted) setGyroEnabled(true);
-  };
-
-  return (
-    <button
-      onClick={handleToggle}
-      className={cn(
-        "absolute bottom-4 right-4 z-50 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm transition-all",
-        gyroEnabled
-          ? "bg-[var(--accent-primary)] text-[var(--bg-primary)]"
-          : "bg-white/15 text-[var(--text-secondary)] hover:bg-white/25",
-      )}
-      aria-label={gyroEnabled ? "Disable gyroscope" : "Enable gyroscope"}
-    >
-      {/* Inline SVG safe here — outside R3F Canvas */}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <ellipse cx="12" cy="12" rx="10" ry="4" />
-        <ellipse cx="12" cy="12" rx="4" ry="10" />
-      </svg>
-      {gyroEnabled ? "Gyro ON" : "Gyro"}
-    </button>
-  );
-}
-
 function positionToSlot(lng: number, lat: number): SlotPosition {
   if (lat > 45) return "top";
   if (lat < -45) return "bottom";
@@ -450,8 +388,6 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
     );
   }
 
-  const { platform } = usePlatform();
-
   return (
     <div className="relative h-full w-full">
       <Canvas
@@ -465,7 +401,6 @@ export function ViewerCanvas({ mode }: { mode: ViewerMode }) {
           <PlatformControls mode={mode} />
         </Suspense>
       </Canvas>
-      {platform === "mobile" && <GyroscopeToggle />}
     </div>
   );
 }

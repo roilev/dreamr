@@ -23,7 +23,8 @@ function NavPill({
 }) {
   const inner = (
     <span className={`relative flex items-center px-4 py-1.5 ${className}`}>
-      <span className="absolute -inset-3 rounded-full bg-black/60 blur-2xl pointer-events-none" />
+      <span className="absolute -inset-4 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
+      <span className="absolute -inset-6 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
       <span className="relative flex items-center gap-1">{children}</span>
     </span>
   );
@@ -55,7 +56,8 @@ export function AppHeader({
         <div className="flex items-baseline gap-3">
           {/* Logo */}
           <Link href="/spaces" className="relative shrink-0">
-            <span className="absolute -inset-4 rounded-full bg-black/50 blur-2xl pointer-events-none" />
+            <span className="absolute -inset-5 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
+            <span className="absolute -inset-8 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
             <span
               className="relative text-2xl italic font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
@@ -93,7 +95,8 @@ export function AppHeader({
         {/* Right: user button */}
         <div className="flex items-center gap-2">
           <div className="relative flex items-center self-center">
-            <span className="absolute -inset-3 rounded-full bg-black/60 blur-2xl pointer-events-none" />
+            <span className="absolute -inset-4 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
+            <span className="absolute -inset-6 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
             <span className="relative flex items-center">
               <CustomUserButton />
             </span>

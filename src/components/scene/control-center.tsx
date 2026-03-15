@@ -247,9 +247,22 @@ function computeVersionLabel(asset: AssetRow, allAssets: AssetRow[]): string {
   return `V${idx + 1} — ${time}`;
 }
 
-function VersionDropdown({ assets, onSelect }: { assets: AssetRow[]; onSelect: (asset: AssetRow) => void }) {
+function VersionDropdown({ assets, onSelect, forceOpen, onForceOpenConsumed }: {
+  assets: AssetRow[];
+  onSelect: (asset: AssetRow) => void;
+  forceOpen?: boolean;
+  onForceOpenConsumed?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (forceOpen && assets.length > 1) {
+      setOpen(true);
+      onForceOpenConsumed?.();
+    }
+  }, [forceOpen, assets.length, onForceOpenConsumed]);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -431,6 +444,7 @@ export function ControlCenter({
   const [promptMode, setPromptMode] = useState<PromptMode>("precise");
   const [depthEnabled, setDepthEnabled] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [versionDropdownOpenFor, setVersionDropdownOpenFor] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const galleryBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -697,7 +711,13 @@ export function ControlCenter({
             return (
               <div key={tab.key} className="relative flex items-center">
                 <motion.button
-                  onClick={() => selectTab(tab)}
+                  onClick={() => {
+                    if (isActiveTab && tabAssets.length > 1) {
+                      setVersionDropdownOpenFor(tab.key);
+                    } else {
+                      selectTab(tab);
+                    }
+                  }}
                   whileTap={{ scale: 0.97 }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium relative rounded-lg transition-colors",
@@ -729,7 +749,12 @@ export function ControlCenter({
                 <AnimatePresence>
                   {tabAssets.length > 1 && isActiveTab && (
                     <motion.div initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -4 }} transition={{ duration: 0.15 }}>
-                      <VersionDropdown assets={tabAssets} onSelect={(a) => selectVersion(tab, a)} />
+                      <VersionDropdown
+                        assets={tabAssets}
+                        onSelect={(a) => selectVersion(tab, a)}
+                        forceOpen={versionDropdownOpenFor === tab.key}
+                        onForceOpenConsumed={() => setVersionDropdownOpenFor(null)}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
