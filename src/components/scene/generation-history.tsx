@@ -295,6 +295,15 @@ function TimelineEvent({
               {event.provider}/{event.modelId?.split("/").pop() ?? ""}
             </span>
           )}
+          {isAdmin && (
+            <button
+              onClick={() => clip(event.id)}
+              className="text-[9px] text-[var(--text-muted)] hover:text-[var(--accent-primary)] font-mono transition-colors"
+              title={event.id}
+            >
+              {event.id.slice(0, 8)}…
+            </button>
+          )}
         </div>
 
         {/* Error */}
@@ -328,6 +337,15 @@ function TimelineEvent({
                     <AssetIcon size={10} />
                   )}
                   {asset.type.replace(/_/g, " ")}
+                  {isAdmin && (
+                    <span
+                      className="font-mono text-[8px] text-[var(--text-muted)] ml-1 cursor-pointer hover:text-[var(--accent-primary)]"
+                      onClick={(e) => { e.stopPropagation(); clip(asset.id); }}
+                      title={asset.id}
+                    >
+                      {asset.id.slice(0, 8)}
+                    </span>
+                  )}
                 </button>
               );
             })}

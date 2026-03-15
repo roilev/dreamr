@@ -32,8 +32,7 @@ export const SEAM_FIX_PROMPT =
   "across the repair zone.";
 
 export const POLE_FILL_PROMPT =
-  "Fill the missing region in this wide-angle photo. Complete the missing areas to seamlessly match the " +
-  "surrounding environment's surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE.";
+  "Fill the missing region in this wide-angle photo. DO NOT CHANGE THE REST OF THE IMAGE.";
 
 const TEXT_ONLY_PROMPTS: Record<WorkflowType, Record<PromptMode, { prefix: string; suffix: string }>> = {
   equirect: {
