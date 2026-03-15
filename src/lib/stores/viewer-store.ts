@@ -45,4 +45,7 @@ export const useViewerStore = create<ViewerStore>((set) => ({
 
   videoElement: null,
   setVideoElement: (el) => set({ videoElement: el }),
+
+  gyroEnabled: false,
+  setGyroEnabled: (enabled) => set({ gyroEnabled: enabled }),
 }));

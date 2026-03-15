@@ -1,14 +1,13 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Euler, Quaternion, MathUtils } from "three";
-import { createPortal } from "react-dom";
 
 import type { ViewerMode } from "@/lib/types/stores";
-import { cn } from "@/lib/utils/cn";
+import { useViewerStore } from "@/lib/stores/viewer-store";
 
 const SPHERE_MODES: ViewerMode[] = ["equirect", "video", "depth"];
 const DEG2RAD = Math.PI / 180;
@@ -17,31 +16,7 @@ interface MobileControlsProps {
   mode: ViewerMode;
 }
 
-// ── Gyroscope Permission ──
-
-async function requestGyroscopePermission(): Promise<boolean> {
-  if (
-    typeof DeviceOrientationEvent !== "undefined" &&
-    "requestPermission" in DeviceOrientationEvent
-  ) {
-    try {
-      const permission = await (
-        DeviceOrientationEvent as unknown as {
-          requestPermission: () => Promise<string>;
-        }
-      ).requestPermission();
-      return permission === "granted";
-    } catch {
-      return false;
-    }
-  }
-  return true;
-}
-
-// ── Gyroscope Camera Control ──
-
 const _euler = new Euler();
-const _quat = new Quaternion();
 const _targetQuat = new Quaternion();
 
 function GyroscopeControl({ enabled }: { enabled: boolean }) {
@@ -98,11 +73,9 @@ function GyroscopeControl({ enabled }: { enabled: boolean }) {
     let deltaAlpha = (curr.alpha - init.alpha) * DEG2RAD;
     let deltaBeta = (curr.beta - init.beta) * DEG2RAD;
 
-    // Wrap alpha delta to -PI..PI
     if (deltaAlpha > Math.PI) deltaAlpha -= 2 * Math.PI;
     if (deltaAlpha < -Math.PI) deltaAlpha += 2 * Math.PI;
 
-    // Clamp pitch to avoid flipping
     deltaBeta = MathUtils.clamp(deltaBeta, -Math.PI / 3, Math.PI / 3);
 
     _euler.set(-deltaBeta, -deltaAlpha, 0, "YXZ");
@@ -113,62 +86,6 @@ function GyroscopeControl({ enabled }: { enabled: boolean }) {
 
   return null;
 }
-
-// ── Gyroscope Toggle Button (HTML overlay, rendered via portal) ──
-
-function GyroscopeToggle({
-  enabled,
-  onToggle,
-}: {
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setPortalTarget(document.body);
-  }, []);
-
-  if (!portalTarget) return null;
-
-  return createPortal(
-    <button
-      onClick={onToggle}
-      className={cn(
-        "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm transition-all",
-        enabled
-          ? "bg-[var(--accent-primary)] text-[var(--bg-primary)]"
-          : "bg-white/15 text-[var(--text-secondary)] hover:bg-white/25",
-      )}
-      aria-label={enabled ? "Disable gyroscope" : "Enable gyroscope"}
-    >
-      <GyroscopeIcon />
-      {enabled ? "Gyro ON" : "Gyro"}
-    </button>,
-    portalTarget,
-  );
-}
-
-function GyroscopeIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <ellipse cx="12" cy="12" rx="10" ry="4" />
-      <ellipse cx="12" cy="12" rx="4" ry="10" />
-    </svg>
-  );
-}
-
-// ── Pinch-to-zoom FOV ──
 
 const PINCH_MIN_FOV = 20;
 const PINCH_MAX_FOV = 110;
@@ -214,27 +131,8 @@ function PinchFovZoom() {
   return null;
 }
 
-// ── Main Mobile Controls ──
-
 export function MobileControls({ mode }: MobileControlsProps) {
-  const [gyroEnabled, setGyroEnabled] = useState(false);
-  const [gyroAvailable, setGyroAvailable] = useState(false);
-
-  useEffect(() => {
-    setGyroAvailable("DeviceOrientationEvent" in window);
-  }, []);
-
-  const handleGyroToggle = useCallback(async () => {
-    if (gyroEnabled) {
-      setGyroEnabled(false);
-      return;
-    }
-
-    const granted = await requestGyroscopePermission();
-    if (granted) {
-      setGyroEnabled(true);
-    }
-  }, [gyroEnabled]);
+  const gyroEnabled = useViewerStore((s) => s.gyroEnabled);
 
   if (mode === "empty" || mode === "loading" || mode === "input_canvas") {
     return null;
@@ -256,12 +154,6 @@ export function MobileControls({ mode }: MobileControlsProps) {
           />
           <PinchFovZoom />
           <GyroscopeControl enabled={gyroEnabled} />
-          {gyroAvailable && (
-            <GyroscopeToggle
-              enabled={gyroEnabled}
-              onToggle={handleGyroToggle}
-            />
-          )}
         </>
       )}
 
@@ -275,12 +167,6 @@ export function MobileControls({ mode }: MobileControlsProps) {
             enabled={!gyroEnabled}
           />
           <GyroscopeControl enabled={gyroEnabled} />
-          {gyroAvailable && (
-            <GyroscopeToggle
-              enabled={gyroEnabled}
-              onToggle={handleGyroToggle}
-            />
-          )}
         </>
       )}
     </>
