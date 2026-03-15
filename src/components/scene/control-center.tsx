@@ -680,10 +680,10 @@ export function ControlCenter({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.97 }}
             transition={{ duration: 0.2 }}
-            className="mx-auto max-w-3xl mb-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-2xl shadow-black/40 overflow-hidden [transform:translateZ(0)]"
-            style={{ maxHeight: "60vh" }}
+            className="mx-auto w-full sm:max-w-3xl mb-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-2xl shadow-black/40 overflow-hidden [transform:translateZ(0)]"
+            style={{ maxHeight: "min(60vh, 420px)" }}
           >
-            <div className="h-full" style={{ height: "60vh" }}>
+            <div className="h-full" style={{ height: "min(60vh, 420px)" }}>
               <UnifiedPanel
                 sceneId={sceneId}
                 activeSteps={activeSteps}

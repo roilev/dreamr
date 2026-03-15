@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { MathUtils } from "three";
+import { MathUtils, TOUCH } from "three";
 
 import type { ViewerMode } from "@/lib/types/stores";
 
@@ -73,7 +73,7 @@ export function MobileControls({ mode }: MobileControlsProps) {
             enableZoom={false}
             enablePan={false}
             rotateSpeed={-0.3}
-            touches={{ ONE: 1, TWO: 2 }}
+            touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
             target={[0, 0, 0]}
           />
           <PinchFovZoom />
@@ -85,7 +85,7 @@ export function MobileControls({ mode }: MobileControlsProps) {
           enableZoom
           enablePan
           enableRotate
-          touches={{ ONE: 1, TWO: 2 }}
+          touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
         />
       )}
     </>

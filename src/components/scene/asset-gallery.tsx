@@ -192,25 +192,25 @@ export function AssetGallery({ sceneId, onClose }: AssetGalleryProps) {
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-default)]">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          Asset Gallery
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-b border-[var(--border-default)]">
+        <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] shrink-0">
+          Assets
         </h2>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => {
               setBulkMode(!bulkMode);
               if (bulkMode) clearSelection();
             }}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors",
+              "p-1.5 rounded-md text-xs transition-colors",
               bulkMode
                 ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]"
                 : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]",
             )}
+            title="Select"
           >
             <CheckSquare size={13} />
-            Select
           </button>
           <button
             onClick={() => setView("grid")}
@@ -221,7 +221,7 @@ export function AssetGallery({ sceneId, onClose }: AssetGalleryProps) {
                 : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
             )}
           >
-            <Grid size={14} />
+            <Grid size={13} />
           </button>
           <button
             onClick={() => setView("list")}
@@ -232,21 +232,21 @@ export function AssetGallery({ sceneId, onClose }: AssetGalleryProps) {
                 : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
             )}
           >
-            <List size={14} />
+            <List size={13} />
           </button>
           {onClose && (
             <button
               onClick={onClose}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-colors"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           )}
         </div>
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-1.5 px-4 py-2 overflow-x-auto border-b border-[var(--border-subtle)]">
+      <div className="flex items-center gap-1 px-3 sm:px-4 py-1.5 overflow-x-auto border-b border-[var(--border-subtle)] scrollbar-none">
         <Filter size={12} className="text-[var(--text-muted)] shrink-0" />
         <button
           onClick={() => setFilter("all")}
@@ -323,7 +323,7 @@ export function AssetGallery({ sceneId, onClose }: AssetGalleryProps) {
       </AnimatePresence>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2
@@ -653,7 +653,7 @@ function AssetDetailOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+      className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
       onClick={onClose}
     >
       <motion.div

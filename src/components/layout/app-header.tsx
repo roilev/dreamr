@@ -22,10 +22,10 @@ function NavPill({
   className?: string;
 }) {
   const inner = (
-    <span className={`relative flex items-center px-4 py-1.5 ${className}`}>
-      <span className="absolute -inset-4 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
-      <span className="absolute -inset-6 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
-      <span className="relative flex items-center gap-1">{children}</span>
+    <span
+      className={`flex items-center px-3 py-1 rounded-full bg-black/50 backdrop-blur-md ${className}`}
+    >
+      <span className="flex items-center gap-1">{children}</span>
     </span>
   );
 
@@ -52,35 +52,35 @@ export function AppHeader({
         className="flex items-center justify-between px-3 sm:px-5 pb-2"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
       >
-        {/* Left: logo + nav on the same line */}
-        <div className="flex items-baseline gap-3">
-          {/* Logo */}
-          <Link href="/spaces" className="relative shrink-0">
-            <span className="absolute -inset-5 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
-            <span className="absolute -inset-8 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
+        {/* Left: logo + nav */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/spaces"
+            className="shrink-0 flex items-center px-3 py-1 rounded-full bg-black/50 backdrop-blur-md"
+          >
             <span
-              className="relative text-2xl italic font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
+              className="text-xl italic font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               Dreamr
             </span>
           </Link>
 
-          {/* Breadcrumb */}
           {hasNav && (
-            <div className="flex items-baseline gap-1.5">
+            <>
+              <span className="text-white/25 select-none text-sm font-light">/</span>
               <NavPill href={`/${spaceId}`}>
-                <span className="text-[13px] uppercase tracking-wide font-light text-white/70">
+                <span className="text-[12px] uppercase tracking-wide font-light text-white/70">
                   {spaceName}
                 </span>
               </NavPill>
 
               {hasScene && (
                 <>
-                  <span className="relative z-10 text-white/25 select-none text-sm font-light">/</span>
+                  <span className="text-white/25 select-none text-sm font-light">/</span>
                   <NavPill>
                     {sceneNameSlot || (
-                      <span className="text-[13px] uppercase tracking-wide font-semibold text-white/90 truncate max-w-[260px]">
+                      <span className="text-[12px] uppercase tracking-wide font-semibold text-white/90 truncate max-w-[200px] sm:max-w-[260px]">
                         {sceneName}
                       </span>
                     )}
@@ -88,18 +88,14 @@ export function AppHeader({
                   </NavPill>
                 </>
               )}
-            </div>
+            </>
           )}
         </div>
 
         {/* Right: user button */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center self-center">
-            <span className="absolute -inset-4 rounded-2xl bg-black/70 blur-xl pointer-events-none" />
-            <span className="absolute -inset-6 rounded-2xl bg-black/40 blur-3xl pointer-events-none" />
-            <span className="relative flex items-center">
-              <CustomUserButton />
-            </span>
+        <div className="flex items-center">
+          <div className="flex items-center px-2 py-1 rounded-full bg-black/50 backdrop-blur-md">
+            <CustomUserButton />
           </div>
         </div>
       </header>
