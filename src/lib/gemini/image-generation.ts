@@ -1,6 +1,6 @@
-import { ai } from "./client";
+import { getAI } from "./client";
 import { GEMINI_MODELS } from "@/lib/utils/constants";
-import type { Modality } from "@google/genai";
+import type { Modality, GenerateContentResponse } from "@google/genai";
 
 export type ImageSize = "512" | "1K" | "2K" | "4K";
 
@@ -46,7 +46,7 @@ function buildContentParts(
   return parts;
 }
 
-function extractImageResult(response: Awaited<ReturnType<typeof ai.models.generateContent>>): ImageResult {
+function extractImageResult(response: GenerateContentResponse): ImageResult {
   const candidates = response.candidates;
   if (!candidates?.length) {
     throw new Error("[gemini] No candidates in response");
@@ -90,6 +90,7 @@ async function callGemini(
 ): Promise<ImageResult> {
   const contents = buildContentParts(prompt, imageBuffers);
 
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: GEMINI_MODELS.FLASH_IMAGE,
     contents,
