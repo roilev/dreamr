@@ -16,6 +16,8 @@ import {
   ChevronRight as ChevronRightIcon,
   Sparkles,
   Wand2,
+  Share2,
+  FolderOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -26,6 +28,7 @@ import { useViewerStore } from "@/lib/stores/viewer-store";
 import { cn } from "@/lib/utils/cn";
 import { PIPELINE_STEP_LABELS } from "@/lib/utils/constants";
 import { useWorldGenerationStatus } from "@/hooks/use-world";
+import { UnifiedPanel } from "@/components/scene/unified-panel";
 import type { SceneInputRow, AssetRow } from "@/lib/supabase/types";
 import type { GetSceneResponse, PipelineStepName } from "@/lib/types/api";
 import type { ViewerMode } from "@/lib/types/stores";
@@ -39,10 +42,12 @@ interface ControlCenterProps {
   initialPrompt?: string;
   imageInputs?: SceneInputRow[];
   activeSteps: string[];
+  progress?: { subStepLabel: string; subStep: number; totalSubSteps: number } | null;
   videoUrl?: string | null;
   showTimeline?: boolean;
   onGenerationStarted?: (step: string) => void;
   onCaptureFrame?: (blob: Blob, timeSeconds: number) => void;
+  onShareOpen?: () => void;
 }
 
 /* ── Tab definitions ── */
@@ -222,6 +227,26 @@ function AssetThumb({ asset }: { asset: AssetRow }) {
   return <img src={asset.public_url} alt="" className="h-5 w-7 rounded object-cover border border-white/10" />;
 }
 
+function computeVersionLabel(asset: AssetRow, allAssets: AssetRow[]): string {
+  const time = new Date(asset.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const enhancedFrom = (asset.metadata as Record<string, unknown> | null)?.enhanced_from as string | undefined;
+
+  if (enhancedFrom) {
+    const originals = allAssets.filter(
+      (a) => !(a.metadata as Record<string, unknown> | null)?.enhanced_from,
+    );
+    const sourceIdx = originals.findIndex((a) => a.id === enhancedFrom);
+    const vNum = sourceIdx >= 0 ? sourceIdx + 1 : "?";
+    return `V${vNum} Enhanced — ${time}`;
+  }
+
+  const originals = allAssets.filter(
+    (a) => !(a.metadata as Record<string, unknown> | null)?.enhanced_from,
+  );
+  const idx = originals.indexOf(asset);
+  return `V${idx + 1} — ${time}`;
+}
+
 function VersionDropdown({ assets, onSelect }: { assets: AssetRow[]; onSelect: (asset: AssetRow) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -238,11 +263,10 @@ function VersionDropdown({ assets, onSelect }: { assets: AssetRow[]; onSelect: (
         <ChevronDown size={8} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 rounded-xl border border-white/10 bg-[var(--bg-primary)] backdrop-blur-xl shadow-2xl overflow-hidden z-[100]">
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-52 rounded-xl border border-white/10 bg-[var(--bg-primary)] backdrop-blur-xl shadow-2xl overflow-hidden z-[100]">
           <div className="p-1.5 space-y-0.5">
-            {assets.map((a, i) => {
-              const date = new Date(a.created_at);
-              const label = `v${assets.length - i} — ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+            {[...assets].reverse().map((a) => {
+              const label = computeVersionLabel(a, assets);
               return (
                 <button key={a.id} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(a); setOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white transition-all cursor-pointer">
                   <AssetThumb asset={a} /><span className="flex-1 text-left truncate">{label}</span>
@@ -300,29 +324,17 @@ function PromptModeToggle({ value, onChange }: { value: PromptMode; onChange: (v
   );
 }
 
-/* ── Enhance button with dropdown ── */
+/* ── Enhance split button with toggles ── */
 function EnhanceButton({
-  sceneId,
-  canUpscale,
-  canDepth,
-  isUpscaling,
-  isDepthGenerating,
-  depthEnabled,
-  onToggleDepth,
-  onRunUpscale,
-  onRunDepth,
+  isEnhancing,
+  onRunEnhance,
 }: {
-  sceneId: string;
-  canUpscale: boolean;
-  canDepth: boolean;
-  isUpscaling: boolean;
-  isDepthGenerating: boolean;
-  depthEnabled: boolean;
-  onToggleDepth: () => void;
-  onRunUpscale: () => void;
-  onRunDepth: () => void;
+  isEnhancing: boolean;
+  onRunEnhance: (opts: { runUpscale: boolean; runDepth: boolean }) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [upscaleOn, setUpscaleOn] = useState(true);
+  const [depthOn, setDepthOn] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -334,21 +346,36 @@ function EnhanceButton({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const handleEnhance = () => {
+    if (isEnhancing || (!upscaleOn && !depthOn)) return;
+    onRunEnhance({ runUpscale: upscaleOn, runDepth: depthOn });
+  };
+
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all",
-          "bg-white/8 hover:bg-white/12 text-white/70 hover:text-white",
-          (isUpscaling || isDepthGenerating) && "text-[var(--accent-primary)]",
-        )}
-      >
-        <Wand2 size={12} />
-        Enhance
-        {(isUpscaling || isDepthGenerating) && <Loader2 size={10} className="animate-spin" />}
-        <ChevronDown size={8} className={cn("transition-transform", open && "rotate-180")} />
-      </button>
+      <div className="flex items-center rounded-lg overflow-hidden bg-white/8">
+        <button
+          onClick={handleEnhance}
+          disabled={isEnhancing || (!upscaleOn && !depthOn)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-all",
+            "hover:bg-white/12 text-white/70 hover:text-white",
+            "disabled:opacity-40 disabled:cursor-not-allowed",
+            isEnhancing && "text-[var(--accent-primary)]",
+          )}
+        >
+          <Wand2 size={12} />
+          Enhance
+          {isEnhancing && <Loader2 size={10} className="animate-spin" />}
+        </button>
+        <div className="w-px h-4 bg-white/10" />
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center px-1.5 py-1.5 text-white/50 hover:text-white/80 hover:bg-white/12 transition-all"
+        >
+          <ChevronDown size={9} className={cn("transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -356,35 +383,26 @@ function EnhanceButton({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 bottom-full mb-2 w-52 rounded-xl border border-white/10 bg-[var(--bg-primary)] backdrop-blur-xl shadow-2xl overflow-hidden z-[100]"
+            className="absolute right-0 bottom-full mb-2 w-48 rounded-xl border border-white/10 bg-[var(--bg-primary)] backdrop-blur-xl shadow-2xl overflow-hidden z-[100]"
           >
-            <div className="p-2 space-y-1">
-              <button
-                onClick={() => { onRunUpscale(); setOpen(false); }}
-                disabled={!canUpscale || isUpscaling}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <span className="flex-1 text-left text-white/80">Upscale</span>
-                {isUpscaling && <Loader2 size={10} className="animate-spin text-[var(--accent-primary)]" />}
-              </button>
-              <div className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs">
-                <span className="flex-1 text-left text-white/80">Depth / Parallax</span>
+            <div className="p-2 space-y-1.5">
+              <div className="flex items-center justify-between rounded-lg px-3 py-2 text-xs">
+                <span className="text-white/80">Upscale</span>
                 <button
-                  onClick={() => {
-                    if (!depthEnabled && canDepth) onRunDepth();
-                    onToggleDepth();
-                  }}
-                  className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors",
-                    depthEnabled ? "bg-[var(--accent-primary)]" : "bg-white/15",
-                  )}
+                  onClick={() => setUpscaleOn(!upscaleOn)}
+                  className={cn("relative h-5 w-9 rounded-full transition-colors", upscaleOn ? "bg-[var(--accent-primary)]" : "bg-white/15")}
                 >
-                  <div className={cn(
-                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all",
-                    depthEnabled ? "left-4.5" : "left-0.5",
-                  )} />
+                  <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all", upscaleOn ? "left-4.5" : "left-0.5")} />
                 </button>
-                {isDepthGenerating && <Loader2 size={10} className="animate-spin text-[var(--accent-primary)]" />}
+              </div>
+              <div className="flex items-center justify-between rounded-lg px-3 py-2 text-xs">
+                <span className="text-white/80">Depth</span>
+                <button
+                  onClick={() => setDepthOn(!depthOn)}
+                  className={cn("relative h-5 w-9 rounded-full transition-colors", depthOn ? "bg-[var(--accent-primary)]" : "bg-white/15")}
+                >
+                  <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all", depthOn ? "left-4.5" : "left-0.5")} />
+                </button>
               </div>
             </div>
           </motion.div>
@@ -401,15 +419,32 @@ export function ControlCenter({
   initialPrompt,
   imageInputs,
   activeSteps,
+  progress,
   videoUrl,
   showTimeline,
   onGenerationStarted,
+  onShareOpen,
 }: ControlCenterProps) {
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [activeTab, setActiveTab] = useState<string>("canvas");
-  const [workflow, setWorkflow] = useState<WorkflowType>("equirect");
+  const [workflow, setWorkflow] = useState<WorkflowType>("panorama");
   const [promptMode, setPromptMode] = useState<PromptMode>("precise");
   const [depthEnabled, setDepthEnabled] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const galleryBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        galleryRef.current && !galleryRef.current.contains(e.target as Node) &&
+        galleryBtnRef.current && !galleryBtnRef.current.contains(e.target as Node)
+      ) setGalleryOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [galleryOpen]);
 
   const updateScene = useUpdateScene(sceneId);
   const runStep = useRunStep(sceneId);
@@ -443,7 +478,7 @@ export function ControlCenter({
   const selectTab = (tab: TabDef) => {
     setActiveTab(tab.key);
     const tabAssets = assetsForTab(tab);
-    const latestAsset = tabAssets[0];
+    const latestAsset = tabAssets[tabAssets.length - 1];
 
     if (tab.key === "canvas") { setMode("input_canvas"); return; }
     if (tab.viewerMode === "splat") {
@@ -515,18 +550,20 @@ export function ControlCenter({
     if (currentTab.key === "image") {
       if (!(prompt.trim() || hasInputImages)) return;
       if (isStepActive("image_360")) return;
+      onGenerationStarted?.("image_360");
       try {
         if (prompt.trim()) await updateScene.mutateAsync({ prompt: prompt.trim() });
         runStep.mutate(
           { step: "image_360", options: { workflow, promptMode } },
           {
-            onSuccess: () => { toast.success("360° image generation started"); onGenerationStarted?.("image_360"); },
+            onSuccess: () => toast.success("360° image generation started"),
             onError: (e) => toast.error(e.message),
           },
         );
       } catch { toast.error("Failed to start generation"); }
     } else if (currentTab.key === "world") {
       if (isStepActive("world") || worldIsGenerating) return;
+      onGenerationStarted?.("world");
       if (currentTab.acceptsPrompt && prompt.trim()) {
         await updateScene.mutateAsync({ prompt: prompt.trim() }).catch(() => {});
       }
@@ -536,62 +573,50 @@ export function ControlCenter({
         if (!frameUrl) { toast.error("Failed to capture frame"); return; }
         generateWorld.mutate(
           { imageUrl: frameUrl },
-          { onSuccess: () => { toast.success("3D world generation started"); onGenerationStarted?.("world"); }, onError: (e) => toast.error(e.message) },
+          { onSuccess: () => toast.success("3D world generation started"), onError: (e) => toast.error(e.message) },
         );
       } else if (equirectAsset) {
         generateWorld.mutate(
           { frameAssetId: equirectAsset.id },
-          { onSuccess: () => { toast.success("3D world generation started"); onGenerationStarted?.("world"); }, onError: (e) => toast.error(e.message) },
+          { onSuccess: () => toast.success("3D world generation started"), onError: (e) => toast.error(e.message) },
         );
       }
     } else {
       const step = currentTab.pipelineStep as PipelineStepName;
       if (isStepActive(step)) return;
+      onGenerationStarted?.(step);
       if (currentTab.acceptsPrompt && prompt.trim()) {
         await updateScene.mutateAsync({ prompt: prompt.trim() }).catch(() => {});
       }
       runStep.mutate(
         { step },
         {
-          onSuccess: () => { toast.success(`${PIPELINE_STEP_LABELS[step as keyof typeof PIPELINE_STEP_LABELS] || step} started`); onGenerationStarted?.(step); },
+          onSuccess: () => toast.success(`${PIPELINE_STEP_LABELS[step as keyof typeof PIPELINE_STEP_LABELS] || step} started`),
           onError: (e) => toast.error(e.message),
         },
       );
     }
   };
 
-  const handleRunUpscale = () => {
-    if (isStepActive("upscale")) return;
+  const handleRunEnhance = (opts: { runUpscale: boolean; runDepth: boolean }) => {
+    if (isStepActive("enhance")) return;
+    const latestEquirect = assets.filter((a) => a.type === "equirect_image").at(-1);
+    if (!latestEquirect) { toast.error("No image to enhance"); return; }
+    onGenerationStarted?.("enhance");
     runStep.mutate(
-      { step: "upscale" },
       {
-        onSuccess: () => { toast.success("Upscale started"); onGenerationStarted?.("upscale"); },
+        step: "enhance" as PipelineStepName,
+        options: {
+          sourceAssetId: latestEquirect.id,
+          runUpscale: opts.runUpscale,
+          runDepth: opts.runDepth,
+        },
+      },
+      {
+        onSuccess: () => toast.success("Enhance started"),
         onError: (e) => toast.error(e.message),
       },
     );
-  };
-
-  const handleRunDepth = () => {
-    if (isStepActive("depth")) return;
-    runStep.mutate(
-      { step: "depth" },
-      {
-        onSuccess: () => { toast.success("Depth generation started"); onGenerationStarted?.("depth"); },
-        onError: (e) => toast.error(e.message),
-      },
-    );
-  };
-
-  const handleToggleDepth = () => {
-    const next = !depthEnabled;
-    setDepthEnabled(next);
-    if (next && hasDepthMap) {
-      const depthAsset = assets.find((a) => a.type === "depth_map");
-      if (depthAsset?.public_url) { setDepthUrl(depthAsset.public_url); setMode("depth"); }
-    } else if (!next && activeTab === "image" && equirectAsset?.public_url) {
-      setEquirectUrl(equirectAsset.public_url);
-      setMode("equirect");
-    }
   };
 
   const removeInput = async (inputId: string) => {
@@ -632,10 +657,33 @@ export function ControlCenter({
 
   return (
     <div className="px-4 pb-4 pt-2 pb-safe">
+      {/* Gallery drop-up panel */}
+      <AnimatePresence>
+        {galleryOpen && (
+          <motion.div
+            ref={galleryRef}
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.97 }}
+            transition={{ duration: 0.2 }}
+            className="mx-auto max-w-3xl mb-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-primary)] shadow-2xl shadow-black/40 overflow-hidden [transform:translateZ(0)]"
+            style={{ maxHeight: "60vh" }}
+          >
+            <div className="h-full" style={{ height: "60vh" }}>
+              <UnifiedPanel
+                sceneId={sceneId}
+                activeSteps={activeSteps}
+                onClose={() => setGalleryOpen(false)}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="relative mx-auto max-w-3xl rounded-2xl bg-[var(--bg-elevated)]/80 backdrop-blur-xl border border-[var(--border-default)] shadow-2xl shadow-black/40"
+        className="relative mx-auto max-w-3xl rounded-2xl bg-[var(--bg-elevated)]/80 backdrop-blur-xl border border-[var(--border-default)] shadow-2xl shadow-black/40 overflow-visible [transform:translateZ(0)]"
       >
         {/* Tab bar */}
         <div className="flex items-center border-b border-white/8 px-1">
@@ -688,28 +736,29 @@ export function ControlCenter({
               </div>
             );
           })}
+          <div className="ml-auto flex items-center gap-0.5 pr-1">
+            {onShareOpen && (
+              <button
+                onClick={onShareOpen}
+                className="p-2 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-colors"
+                title="Share"
+              >
+                <Share2 size={13} />
+              </button>
+            )}
+            <button
+              ref={galleryBtnRef}
+              onClick={() => setGalleryOpen((p) => !p)}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                galleryOpen ? "text-white bg-white/10" : "text-white/40 hover:text-white/80 hover:bg-white/[0.06]",
+              )}
+              title="Library"
+            >
+              <FolderOpen size={13} />
+            </button>
+          </div>
         </div>
-
-        {/* Active generation bar */}
-        <AnimatePresence>
-          {(activeSteps.length > 0 || worldIsGenerating) && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden border-b border-white/5">
-              <div className="flex items-center gap-2 px-4 py-2">
-                {activeSteps.map((s) => (
-                  <motion.div key={s} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)]/10 px-3 py-1 text-xs font-medium text-[var(--accent-primary)]">
-                    <Loader2 size={10} className="animate-spin" />
-                    {PIPELINE_STEP_LABELS[s as keyof typeof PIPELINE_STEP_LABELS] || s}
-                  </motion.div>
-                ))}
-                {worldIsGenerating && !activeSteps.includes("world") && (
-                  <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)]/10 px-3 py-1 text-xs font-medium text-[var(--accent-primary)]">
-                    <Loader2 size={10} className="animate-spin" /> 3D World
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* References row */}
         <AnimatePresence>
@@ -755,23 +804,21 @@ export function ControlCenter({
         {/* Image tab controls: workflow + prompt mode + enhance (below prompt) */}
         <AnimatePresence>
           {activeTab === "image" && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
               <div className="flex items-center gap-2 px-4 py-2 border-t border-white/5 flex-wrap">
                 <WorkflowSelector value={workflow} onChange={setWorkflow} />
                 <PromptModeToggle value={promptMode} onChange={setPromptMode} />
                 <div className="flex-1" />
                 {equirectAsset && (
                   <EnhanceButton
-                    sceneId={sceneId}
-                    canUpscale={hasRawVideo && !hasUpscaled}
-                    canDepth={hasAnyVisual && !isStepActive("depth")}
-                    isUpscaling={isStepActive("upscale")}
-                    isDepthGenerating={isStepActive("depth")}
-                    depthEnabled={depthEnabled}
-                    onToggleDepth={handleToggleDepth}
-                    onRunUpscale={handleRunUpscale}
-                    onRunDepth={handleRunDepth}
+                    isEnhancing={isStepActive("enhance")}
+                    onRunEnhance={handleRunEnhance}
                   />
+                )}
+                {isTabStepActive && progress && (
+                  <span className="text-[10px] text-white/40 font-medium truncate max-w-[120px]">
+                    {progress.subStepLabel} ({progress.subStep + 1}/{progress.totalSubSteps})
+                  </span>
                 )}
                 <motion.button
                   onClick={handleSubmit}

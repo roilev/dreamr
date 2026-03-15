@@ -5,6 +5,7 @@ export const PIPELINE_STEPS = [
   "video",
   "upscale",
   "depth",
+  "enhance",
   "world",
 ] as const;
 
@@ -16,6 +17,7 @@ export const PIPELINE_STEP_LABELS: Record<
   video: "Video",
   upscale: "Upscale",
   depth: "Depth",
+  enhance: "Enhance",
   world: "3D World",
 };
 
@@ -25,6 +27,11 @@ export const SUPABASE_BUCKETS = {
   PUBLIC_ASSETS: "public-assets",
 } as const;
 
+export const GEMINI_MODELS = {
+  FLASH_IMAGE: "gemini-3.1-flash-image-preview",
+  PRO_IMAGE: "gemini-3-pro-image-preview",
+} as const;
+
 export const FAL_MODELS = {
   NANO_BANANA_2: "fal-ai/nano-banana-2",
   NANO_BANANA_2_EDIT: "fal-ai/nano-banana-2/edit",
@@ -32,6 +39,7 @@ export const FAL_MODELS = {
   VEO_3_1_TEXT: "fal-ai/veo3.1",
   VEO_3_FAST: "fal-ai/veo3/fast",
   SEEDVR_UPSCALE: "fal-ai/seedvr/upscale/video",
+  SEEDVR_UPSCALE_IMAGE: "fal-ai/seedvr/upscale/image",
   DEPTH_ANYTHING_V2: "fal-ai/image-preprocessors/depth-anything/v2",
   MARIGOLD_DEPTH: "fal-ai/imageutils/marigold-depth",
 } as const;

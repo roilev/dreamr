@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
+import { isAdminServer } from "@/lib/clerk/check-role";
+import { idColumn } from "@/lib/ids";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ sceneId: string }> }) {
   try {
@@ -13,8 +15,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ sce
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    let resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const { data: scene } = await supabase.from("scenes").select("id").eq(idColumn(sceneId) as never, sceneId).single();
+      if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      resolvedSceneId = (scene as { id: string }).id;
+    }
 
     const { data, error } = await supabase
       .from("assets")

@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
+import { isAdminServer } from "@/lib/clerk/check-role";
+import { idColumn } from "@/lib/ids";
 import type { AssetRow, PipelineJobRow, SceneWorldRow } from "@/lib/supabase/types";
 
 interface GenerationEvent {
@@ -14,6 +16,10 @@ interface GenerationEvent {
   completedAt?: string;
   assets?: AssetRow[];
   error?: string;
+  provider?: string;
+  modelId?: string;
+  inputMetadata?: Record<string, unknown>;
+  outputMetadata?: Record<string, unknown>;
 }
 
 export async function GET(
@@ -30,9 +36,13 @@ export async function GET(
     const { sceneId } = await params;
     const supabase = createAdminSupabase();
 
-    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    let resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
     if (!resolvedSceneId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const { data: scene } = await supabase.from("scenes").select("id").eq(idColumn(sceneId) as never, sceneId).single();
+      if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      resolvedSceneId = (scene as { id: string }).id;
     }
 
     const [jobsResult, assetsResult, worldsResult] = await Promise.all([
@@ -77,6 +87,10 @@ export async function GET(
         completedAt: job.completed_at ?? undefined,
         assets: assetsByJobId.get(job.id),
         error: job.error_message ?? undefined,
+        provider: job.provider ?? undefined,
+        modelId: job.model_id ?? undefined,
+        inputMetadata: (job.input_metadata as Record<string, unknown>) ?? undefined,
+        outputMetadata: (job.output_metadata as Record<string, unknown>) ?? undefined,
       });
     }
 

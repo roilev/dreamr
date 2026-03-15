@@ -20,7 +20,9 @@ Create `.env.local` in the project root. All of these require real credentials f
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — Clerk auth (app won't render any page without valid keys)
 - `CLERK_WEBHOOK_SECRET` — Svix webhook for Clerk-to-Supabase user sync
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — Supabase (DB, storage, realtime)
-- `FAL_KEY` — fal.ai API (optional; needed only for AI generation)
+- `GEMINI_API_KEY` — Google AI Studio API key (primary image generation provider)
+- `FAL_KEY` — fal.ai API (fallback image generation; set `IMAGE_PROVIDER=fal` to use)
+- `IMAGE_PROVIDER` — `gemini` (default) or `fal`; controls which image generation backend is used
 - `MARBLE_API_KEY` / `MARBLE_API_URL` — World Labs Marble API (optional; only for 3D world generation)
 
 ### Clerk sign-in for testing

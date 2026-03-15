@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
+import { isAdminServer } from "@/lib/clerk/check-role";
+import { idColumn } from "@/lib/ids";
 import type { AddSceneInputRequest } from "@/lib/types/api";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sceneId: string }> }) {
@@ -15,8 +17,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sce
     const body: AddSceneInputRequest = await req.json();
     const supabase = createAdminSupabase();
 
-    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    let resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const { data: scene } = await supabase.from("scenes").select("id").eq(idColumn(sceneId) as never, sceneId).single();
+      if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      resolvedSceneId = (scene as { id: string }).id;
+    }
 
     const { data, error } = await supabase
       .from("scene_inputs")
@@ -50,8 +58,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
     const body: { id: string; position_x?: number; position_y?: number; position_z?: number }[] = await req.json();
     const supabase = createAdminSupabase();
 
-    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!resolvedSceneId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    let resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const { data: scene } = await supabase.from("scenes").select("id").eq(idColumn(sceneId) as never, sceneId).single();
+      if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      resolvedSceneId = (scene as { id: string }).id;
+    }
 
     const updates = await Promise.all(
       body.map(async (item) => {

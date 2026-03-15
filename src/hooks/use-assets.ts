@@ -67,6 +67,10 @@ export interface GenerationEvent {
   completedAt?: string;
   assets?: ListAssetsResponse;
   error?: string;
+  provider?: string;
+  modelId?: string;
+  inputMetadata?: Record<string, unknown>;
+  outputMetadata?: Record<string, unknown>;
 }
 
 export type GenerationHistoryResponse = GenerationEvent[];

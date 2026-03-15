@@ -8,7 +8,7 @@ import { AssetGallery } from "./asset-gallery";
 import { GenerationHistory } from "./generation-history";
 import { PIPELINE_STEP_LABELS } from "@/lib/utils/constants";
 
-type PanelTab = "jobs" | "assets" | "history";
+type PanelTab = "library" | "timeline";
 
 interface UnifiedPanelProps {
   sceneId: string;
@@ -18,14 +18,13 @@ interface UnifiedPanelProps {
 }
 
 const TABS: { key: PanelTab; label: string; icon: typeof Activity }[] = [
-  { key: "jobs", label: "Jobs", icon: Activity },
-  { key: "assets", label: "Assets", icon: FolderOpen },
-  { key: "history", label: "History", icon: Clock },
+  { key: "library", label: "Library", icon: FolderOpen },
+  { key: "timeline", label: "Timeline", icon: Clock },
 ];
 
-export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "jobs" }: UnifiedPanelProps) {
+export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "library" }: UnifiedPanelProps) {
   const [tab, setTab] = useState<PanelTab>(
-    activeSteps.length > 0 ? "jobs" : defaultTab,
+    activeSteps.length > 0 ? "timeline" : defaultTab,
   );
 
   return (
@@ -35,7 +34,7 @@ export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "jobs
         {TABS.map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.key;
-          const jobCount = t.key === "jobs" ? activeSteps.length : 0;
+          const jobCount = t.key === "timeline" ? activeSteps.length : 0;
 
           return (
             <button
@@ -70,21 +69,9 @@ export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "jobs
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
-          {tab === "jobs" && (
+          {tab === "library" && (
             <motion.div
-              key="jobs"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="h-full overflow-y-auto"
-            >
-              <RunningJobs activeSteps={activeSteps} />
-            </motion.div>
-          )}
-          {tab === "assets" && (
-            <motion.div
-              key="assets"
+              key="library"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -94,16 +81,16 @@ export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "jobs
               <AssetGallery sceneId={sceneId} onClose={onClose} />
             </motion.div>
           )}
-          {tab === "history" && (
+          {tab === "timeline" && (
             <motion.div
-              key="history"
+              key="timeline"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="h-full overflow-hidden"
+              className="h-full overflow-y-auto"
             >
-              <GenerationHistory sceneId={sceneId} />
+              <TimelineView sceneId={sceneId} activeSteps={activeSteps} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -113,20 +100,10 @@ export function UnifiedPanel({ sceneId, activeSteps, onClose, defaultTab = "jobs
 }
 
 function RunningJobs({ activeSteps }: { activeSteps: string[] }) {
-  if (activeSteps.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)]">
-        <Activity size={28} className="mb-2 opacity-40" />
-        <span className="text-sm">No active jobs</span>
-        <span className="text-xs text-[var(--text-muted)] mt-1 opacity-60">
-          Start a generation to see progress here
-        </span>
-      </div>
-    );
-  }
+  if (activeSteps.length === 0) return null;
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="space-y-3">
       <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-medium">
         {activeSteps.length} active job{activeSteps.length !== 1 ? "s" : ""}
       </p>
@@ -165,6 +142,26 @@ function RunningJobs({ activeSteps }: { activeSteps: string[] }) {
           </div>
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function TimelineView({ sceneId, activeSteps }: { sceneId: string; activeSteps: string[] }) {
+  return (
+    <div className="p-4 space-y-4">
+      <RunningJobs activeSteps={activeSteps} />
+      {activeSteps.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-8 text-[var(--text-muted)]">
+          <Activity size={24} className="mb-2 opacity-40" />
+          <span className="text-xs">No active jobs</span>
+        </div>
+      )}
+      <div className="pt-2 border-t border-[var(--border-default)]">
+        <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-medium mb-3">
+          History
+        </p>
+        <GenerationHistory sceneId={sceneId} />
+      </div>
     </div>
   );
 }

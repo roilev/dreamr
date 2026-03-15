@@ -56,12 +56,19 @@ export async function createJob(
 
 export async function completeJob(jobId: string, outputMetadata?: Record<string, unknown>) {
   const supabase = createAdminSupabase();
+  const { data: current } = await supabase
+    .from("pipeline_jobs")
+    .select("output_metadata")
+    .eq("id", jobId)
+    .single();
+
+  const existing = ((current as Record<string, unknown> | null)?.output_metadata as Record<string, unknown>) || {};
   await supabase
     .from("pipeline_jobs")
     .update({
       status: "completed",
       completed_at: new Date().toISOString(),
-      output_metadata: outputMetadata ?? null,
+      output_metadata: outputMetadata ? { ...existing, ...outputMetadata } : existing,
     } as never)
     .eq("id", jobId);
 }
@@ -84,7 +91,7 @@ export async function createAsset(
   type: AssetType,
   storagePath: string,
   publicUrl: string,
-  opts?: { fileSize?: number; width?: number; height?: number; durationSeconds?: number },
+  opts?: { fileSize?: number; width?: number; height?: number; durationSeconds?: number; metadata?: Record<string, unknown> },
 ) {
   const supabase = createAdminSupabase();
   const { data, error } = await supabase
@@ -99,7 +106,7 @@ export async function createAsset(
       width: opts?.width ?? null,
       height: opts?.height ?? null,
       duration_seconds: opts?.durationSeconds ?? null,
-      metadata: null,
+      metadata: opts?.metadata ?? null,
     } as never)
     .select()
     .single() as { data: AssetRow | null; error: unknown };
@@ -111,6 +118,16 @@ export async function createAsset(
 export async function updateScene(sceneId: string, updates: Record<string, unknown>) {
   const supabase = createAdminSupabase();
   await supabase.from("scenes").update(updates as never).eq("id", sceneId);
+}
+
+export async function findAssetById(assetId: string): Promise<AssetRow | null> {
+  const supabase = createAdminSupabase();
+  const { data } = await supabase
+    .from("assets")
+    .select("*")
+    .eq("id", assetId)
+    .single() as { data: AssetRow | null };
+  return data;
 }
 
 export async function findAsset(sceneId: string, type: string): Promise<AssetRow | null> {

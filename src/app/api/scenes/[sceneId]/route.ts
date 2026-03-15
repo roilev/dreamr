@@ -60,7 +60,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sc
     const resolvedId = (existing as { id: string }).id;
 
     const owns = await ensureSceneOwnership(supabase, resolvedId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!owns) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     const { name, prompt, description } = body as { name?: string; prompt?: string; description?: string };
     const updates = {
@@ -98,7 +101,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const resolvedId = (existing as { id: string }).id;
 
     const owns = await ensureSceneOwnership(supabase, resolvedId, user.id);
-    if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!owns) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     const { error } = await supabase.from("scenes").delete().eq("id", resolvedId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

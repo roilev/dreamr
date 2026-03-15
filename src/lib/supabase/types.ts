@@ -15,6 +15,7 @@ export type PipelineStep =
   | "video"
   | "upscale"
   | "depth"
+  | "enhance"
   | "world";
 
 export type InputType = "image" | "text";

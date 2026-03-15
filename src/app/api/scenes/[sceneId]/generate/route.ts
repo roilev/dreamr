@@ -3,8 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { ensureUser } from "@/lib/supabase/ensure-user";
 import { ensureSceneOwnership } from "@/lib/supabase/ensure-scene-ownership";
+import { isAdminServer } from "@/lib/clerk/check-role";
 import { rateLimitByIP, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { inngest } from "@/lib/inngest/client";
+import { idColumn } from "@/lib/ids";
 import type { RunStepRequest, PipelineStepName } from "@/lib/types/api";
 
 const EVENT_MAP: Record<PipelineStepName, string> = {
@@ -12,6 +14,7 @@ const EVENT_MAP: Record<PipelineStepName, string> = {
   video: "dreamr/step.video",
   upscale: "dreamr/step.upscale",
   depth: "dreamr/step.depth",
+  enhance: "dreamr/step.enhance",
 };
 
 export async function POST(
@@ -34,15 +37,20 @@ export async function POST(
     const step = body.step;
     if (!EVENT_MAP[step]) {
       return NextResponse.json(
-        { error: `Invalid step: ${step}. Valid: image_360, video, upscale, depth` },
+        { error: `Invalid step: ${step}. Valid: ${Object.keys(EVENT_MAP).join(", ")}` },
         { status: 400 },
       );
     }
 
     const supabase = createAdminSupabase();
-    const resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
-    if (!resolvedSceneId)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    let resolvedSceneId = await ensureSceneOwnership(supabase, sceneId, user.id);
+    if (!resolvedSceneId) {
+      const admin = await isAdminServer();
+      if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const { data: scene } = await supabase.from("scenes").select("id").eq(idColumn(sceneId) as never, sceneId).single();
+      if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      resolvedSceneId = (scene as { id: string }).id;
+    }
 
     const eventData: Record<string, unknown> = {
       sceneId: resolvedSceneId,
@@ -58,6 +66,11 @@ export async function POST(
     }
     if (step === "depth" && body.options?.depthModel) {
       eventData.depthModel = body.options.depthModel;
+    }
+    if (step === "enhance") {
+      eventData.sourceAssetId = body.options?.sourceAssetId;
+      eventData.runUpscale = body.options?.runUpscale ?? true;
+      eventData.runDepth = body.options?.runDepth ?? true;
     }
     if (body.options?.imageUrl) {
       eventData.imageUrl = body.options.imageUrl;

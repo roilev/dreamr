@@ -20,7 +20,7 @@ export function useRunStep(sceneId: string) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scene", sceneId] });
+      queryClient.invalidateQueries({ queryKey: ["scene", sceneId] }, { cancelRefetch: false }).catch(() => {});
     },
   });
 }
@@ -42,7 +42,7 @@ export function useGenerateWorld(sceneId: string) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scene", sceneId] });
+      queryClient.invalidateQueries({ queryKey: ["scene", sceneId] }, { cancelRefetch: false }).catch(() => {});
     },
   });
 }

@@ -1,10 +1,26 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { PipelineProgress } from "@/hooks/use-generation-tracker";
 
-export function GenerationLoading() {
+interface Props {
+  progress?: PipelineProgress | null;
+}
+
+function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${s % 60}s`;
+}
+
+export function GenerationLoading({ progress }: Props) {
+  const fraction = progress
+    ? (progress.subStep + 0.5) / progress.totalSubSteps
+    : 0;
+
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10 gap-6">
       {/* Animated radial glow */}
       <motion.div
         className="absolute"
@@ -50,14 +66,36 @@ export function GenerationLoading() {
         }}
       />
 
-      {/* Loading text */}
-      <motion.span
-        className="relative text-sm text-white/40 font-medium tracking-wide"
-        animate={{ opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        Loading...
-      </motion.span>
+      {/* Progress info */}
+      <div className="relative flex flex-col items-center gap-2">
+        <motion.span
+          className="text-sm text-white/50 font-medium tracking-wide"
+          animate={{ opacity: [0.4, 0.7, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          {progress?.subStepLabel ?? "Generating..."}
+        </motion.span>
+
+        {progress && (
+          <>
+            {/* Step progress bar */}
+            <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-white/30"
+                initial={{ width: 0 }}
+                animate={{ width: `${fraction * 100}%` }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </div>
+
+            <span className="text-xs text-white/30 tabular-nums">
+              Step {progress.subStep + 1} of {progress.totalSubSteps}
+              {" · "}
+              {formatElapsed(progress.elapsedMs)}
+            </span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,8 @@ import { useSceneWorld } from "@/hooks/use-world";
 import { ModeTransition } from "@/components/viewer/mode-transition";
 import type { SceneInputRow } from "@/lib/supabase/types";
 import type { ViewerInputImage } from "@/lib/types/stores";
+import type { PipelineProgress } from "@/hooks/use-generation-tracker";
+import { GenerationLoading } from "@/components/viewer/generation-loading";
 
 function SceneName({ sceneId, name }: { sceneId: string; name: string }) {
   const [editing, setEditing] = useState(false);
@@ -110,11 +112,11 @@ function hydrateViewerFromAssets(
   const vs = useViewerStore.getState();
   vs.setAssets(assets as never);
 
-  const equirect = assets.find((a) => a.type === "equirect_image");
+  const equirect = assets.findLast((a) => a.type === "equirect_image");
   const video =
-    assets.find((a) => a.type === "upscaled_video") ??
-    assets.find((a) => a.type === "video");
-  const depth = assets.find((a) => a.type === "depth_map");
+    assets.findLast((a) => a.type === "upscaled_video") ??
+    assets.findLast((a) => a.type === "video");
+  const depth = assets.findLast((a) => a.type === "depth_map");
 
   const splat100k = assets.find((a) => a.type === "splat_100k");
   const splat500k = assets.find((a) => a.type === "splat_500k");
@@ -170,6 +172,8 @@ export function SceneEditor({
   startTracking,
   stopTracking,
   isGenerating,
+  progress,
+  onShareOpen,
 }: {
   sceneId: string;
   spaceId?: string;
@@ -178,6 +182,8 @@ export function SceneEditor({
   startTracking: (step: string, baseAssetCount: number, baseJobCount?: number) => void;
   stopTracking: () => void;
   isGenerating: boolean;
+  progress?: PipelineProgress | null;
+  onShareOpen?: () => void;
 }) {
   const { data: scene, isLoading } = useScene(sceneId);
   const { data: worldData } = useSceneWorld(sceneId);
@@ -187,14 +193,6 @@ export function SceneEditor({
   const [capturedFrames, setCapturedFrames] = useState<CapturedFrame[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
-  const prevGeneratingRef = useRef(false);
-
-  useEffect(() => {
-    if (prevGeneratingRef.current && !isGenerating) {
-      toast.success("Generation complete");
-    }
-    prevGeneratingRef.current = isGenerating;
-  }, [isGenerating]);
 
   useEffect(() => {
     resetViewerForScene();
@@ -372,6 +370,12 @@ export function SceneEditor({
         </div>
       )}
 
+      {isGenerating && (
+        <div className="absolute inset-0 z-10">
+          <GenerationLoading progress={progress} />
+        </div>
+      )}
+
       {capturedFrames.length > 0 && (
         <div className="absolute bottom-32 left-0 right-0 z-20">
           <FrameSelector
@@ -391,12 +395,14 @@ export function SceneEditor({
             initialPrompt={scene?.prompt ?? ""}
             imageInputs={imageInputs}
             activeSteps={activeSteps}
+            progress={progress}
             videoUrl={videoUrl}
             showTimeline={!!showTimeline}
             onGenerationStarted={(step) =>
               startTracking(step, scene?.assets?.length ?? 0, scene?.jobs?.length ?? 0)
             }
             onCaptureFrame={handleCaptureFrame}
+            onShareOpen={onShareOpen}
           />
         </div>
       </div>

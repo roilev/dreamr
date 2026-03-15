@@ -1,7 +1,13 @@
 import { inngest } from "../client";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { generateImage, editImage, inpaintSeam, fillPoleCapture } from "@/lib/fal/nano-banana";
-import { SUPABASE_BUCKETS, FAL_MODELS } from "@/lib/utils/constants";
+import {
+  generateImage,
+  editImage,
+  inpaintSeam,
+  fillPoleCapture,
+  getProviderInfo,
+} from "@/lib/generation/provider";
+import { SUPABASE_BUCKETS } from "@/lib/utils/constants";
 import {
   downloadAndUploadBuffer,
   createJob,
@@ -19,7 +25,6 @@ import {
   reprojectFilledPoles,
   wrapAndRenderCaptures,
   reprojectFilledCaptures,
-  resizeToEquirect,
 } from "@/lib/processing/equirect-processing";
 import {
   getTextOnlyPrompt,
@@ -36,11 +41,12 @@ import type { SceneRow, SceneInputRow } from "@/lib/supabase/types";
 export const stepImage360 = inngest.createFunction(
   { id: "step-image360", retries: 1 },
   { event: "dreamr/step.image360" },
-  async ({ event, step }) => {
+  async ({ event }) => {
     const { sceneId, userId } = event.data;
     const workflow = ((event.data as Record<string, unknown>).workflow as WorkflowType) || "equirect";
     const promptMode = ((event.data as Record<string, unknown>).promptMode as PromptMode) || "precise";
     const config = WORKFLOW_CONFIGS[workflow];
+    const { provider, modelId } = getProviderInfo();
 
     const startTime = Date.now();
     await updateScene(sceneId, { status: "generating", current_step: "image_360" });
@@ -60,6 +66,7 @@ export const stepImage360 = inngest.createFunction(
       .order("sort_order") as { data: SceneInputRow[] | null; error: unknown };
 
     const referenceUrls: string[] = [];
+    const referenceBuffers: Buffer[] = [];
     const inputSlots: { index: number; slot: string }[] = [];
     if (inputs?.length) {
       for (let i = 0; i < inputs.length; i++) {
@@ -75,20 +82,24 @@ export const stepImage360 = inngest.createFunction(
           });
         }
       }
+      // Download reference images into buffers for the gemini provider
+      for (const url of referenceUrls) {
+        const resp = await fetch(url);
+        referenceBuffers.push(Buffer.from(await resp.arrayBuffer()));
+      }
     }
 
     const hasImages = referenceUrls.length > 0;
-    const modelId = hasImages ? FAL_MODELS.NANO_BANANA_2_EDIT : FAL_MODELS.NANO_BANANA_2;
     const userPrompt = scene?.prompt || "";
 
-    const job = await createJob(sceneId, "image_360", "fal", modelId, {
+    const job = await createJob(sceneId, "image_360", provider, modelId, {
       workflow,
       prompt_mode: promptMode,
       user_prompt: userPrompt || null,
       has_reference_images: hasImages,
       reference_image_count: referenceUrls.length,
     });
-    const logId = await logGenerationStart(sceneId, "image_360", "fal", modelId, userId);
+    const logId = await logGenerationStart(sceneId, "image_360", provider, modelId, userId);
     const basePath = `${userId}/${sceneId}`;
     const intermediates: Record<string, string> = {};
 
@@ -106,6 +117,7 @@ export const stepImage360 = inngest.createFunction(
       const genResult = hasImages
         ? await editImage({
             prompt: generatePrompt,
+            imageBuffers: referenceBuffers,
             imageUrls: referenceUrls,
             aspectRatio: config.generateAspectRatio,
           })
@@ -114,10 +126,7 @@ export const stepImage360 = inngest.createFunction(
             aspectRatio: config.generateAspectRatio,
           });
 
-      const rawImage = genResult.images[0];
-      const rawResponse = await fetch(rawImage.url);
-      const rawBuffer = Buffer.from(await rawResponse.arrayBuffer());
-
+      const rawBuffer = genResult.buffer;
       const rawPath = `${basePath}/raw_${job.id}.png`;
       const { publicUrl: rawUrl } = await downloadAndUploadBuffer(
         rawBuffer, SUPABASE_BUCKETS.GENERATED_ASSETS, rawPath,
@@ -127,8 +136,10 @@ export const stepImage360 = inngest.createFunction(
       await updateJobMeta(job.id, {
         step_1_generate: {
           prompt: generatePrompt,
+          reference_urls: referenceUrls,
           raw_url: rawUrl,
-          dimensions: { width: rawImage.width, height: rawImage.height },
+          dimensions: { width: genResult.width, height: genResult.height },
+          description: genResult.description,
         },
       });
 
@@ -142,10 +153,13 @@ export const stepImage360 = inngest.createFunction(
       );
       intermediates.seamCrop = seamCropUrl;
 
-      const seamResult = await inpaintSeam(seamCropUrl, SEAM_FIX_PROMPT);
-      const seamInpaintedUrl = seamResult.images[0].url;
-      const seamResponse = await fetch(seamInpaintedUrl);
-      const seamInpaintedBuffer = Buffer.from(await seamResponse.arrayBuffer());
+      const seamResult = await inpaintSeam(seamCropBuffer, seamCropUrl, SEAM_FIX_PROMPT);
+      const seamInpaintedBuffer = seamResult.buffer;
+
+      const seamInpaintedPath = `${basePath}/seam-inpainted_${job.id}.png`;
+      const { publicUrl: seamInpaintedUrl } = await downloadAndUploadBuffer(
+        seamInpaintedBuffer, SUPABASE_BUCKETS.GENERATED_ASSETS, seamInpaintedPath,
+      );
 
       const seamFixedBuffer = await applySeamFix(
         shiftedPixels, sourceWidth, sourceHeight,
@@ -167,12 +181,12 @@ export const stepImage360 = inngest.createFunction(
       });
 
       // ── Step 3: Pole Fill ──
-      let poleTopUrl: string;
-      let poleBottomUrl: string;
+      let filledTopBuffer: Buffer;
+      let filledBottomBuffer: Buffer;
       let intermediateEqBuffer: Buffer;
 
       if (workflow === "equirect") {
-        const { letterboxedBuffer, poleTopBuffer, poleBottomBuffer, eqWidth, eqHeight } =
+        const { letterboxedBuffer, poleTopBuffer, poleBottomBuffer } =
           await letterboxAndRenderPoles(seamFixedBuffer, config.defaults.poleFov);
 
         const lbPath = `${basePath}/letterboxed_${job.id}.png`;
@@ -194,12 +208,12 @@ export const stepImage360 = inngest.createFunction(
         intermediates.poleBottom = botCaptureUrl;
 
         const [topFill, botFill] = await Promise.all([
-          fillPoleCapture(topCaptureUrl, POLE_FILL_PROMPT),
-          fillPoleCapture(botCaptureUrl, POLE_FILL_PROMPT),
+          fillPoleCapture(poleTopBuffer, topCaptureUrl, POLE_FILL_PROMPT),
+          fillPoleCapture(poleBottomBuffer, botCaptureUrl, POLE_FILL_PROMPT),
         ]);
 
-        poleTopUrl = topFill.images[0].url;
-        poleBottomUrl = botFill.images[0].url;
+        filledTopBuffer = topFill.buffer;
+        filledBottomBuffer = botFill.buffer;
       } else {
         const vCov = config.defaults.vertCoverage ?? 75;
         const cFov = config.defaults.captureFov ?? 120;
@@ -227,31 +241,34 @@ export const stepImage360 = inngest.createFunction(
         intermediates.captureBottom = botCaptureUrl;
 
         const [topFill, botFill] = await Promise.all([
-          fillPoleCapture(topCaptureUrl, POLE_FILL_PROMPT),
-          fillPoleCapture(botCaptureUrl, POLE_FILL_PROMPT),
+          fillPoleCapture(captureTopBuffer, topCaptureUrl, POLE_FILL_PROMPT),
+          fillPoleCapture(captureBottomBuffer, botCaptureUrl, POLE_FILL_PROMPT),
         ]);
 
-        poleTopUrl = topFill.images[0].url;
-        poleBottomUrl = botFill.images[0].url;
+        filledTopBuffer = topFill.buffer;
+        filledBottomBuffer = botFill.buffer;
       }
 
-      const [topFillResp, botFillResp] = await Promise.all([
-        fetch(poleTopUrl),
-        fetch(poleBottomUrl),
-      ]);
-      const filledTopBuffer = Buffer.from(await topFillResp.arrayBuffer());
-      const filledBottomBuffer = Buffer.from(await botFillResp.arrayBuffer());
+      const filledTopPath = `${basePath}/filled-top_${job.id}.png`;
+      const filledBotPath = `${basePath}/filled-bot_${job.id}.png`;
+      const { publicUrl: filledTopUrl } = await downloadAndUploadBuffer(
+        filledTopBuffer, SUPABASE_BUCKETS.GENERATED_ASSETS, filledTopPath,
+      );
+      const { publicUrl: filledBotUrl } = await downloadAndUploadBuffer(
+        filledBottomBuffer, SUPABASE_BUCKETS.GENERATED_ASSETS, filledBotPath,
+      );
 
       await updateJobMeta(job.id, {
         step_3_poles: {
           prompt: POLE_FILL_PROMPT,
-          filled_top_url: poleTopUrl,
-          filled_bottom_url: poleBottomUrl,
+          filled_top_url: filledTopUrl,
+          filled_bottom_url: filledBotUrl,
           intermediates,
         },
       });
 
       // ── Step 4: Finalize ──
+      await updateJobMeta(job.id, { step_4_finalize: { started: true } });
       let finalBuffer: Buffer;
       if (workflow === "equirect") {
         finalBuffer = await reprojectFilledPoles(

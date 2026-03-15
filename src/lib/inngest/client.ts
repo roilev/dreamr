@@ -28,6 +28,15 @@ type DreamrEvents = {
       imageUrl?: string;
     };
   };
+  "dreamr/step.enhance": {
+    data: {
+      sceneId: string;
+      userId: string;
+      sourceAssetId: string;
+      runUpscale: boolean;
+      runDepth: boolean;
+    };
+  };
   "dreamr/world.generate": {
     data: {
       sceneId: string;

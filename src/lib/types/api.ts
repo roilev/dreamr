@@ -73,7 +73,7 @@ export type AddSceneInputResponse = SceneInputRow;
 
 // ── Pipeline (per-step) ──
 
-export type PipelineStepName = "image_360" | "video" | "upscale" | "depth";
+export type PipelineStepName = "image_360" | "video" | "upscale" | "depth" | "enhance";
 
 export interface RunStepRequest {
   step: PipelineStepName;
@@ -83,6 +83,9 @@ export interface RunStepRequest {
     veoModel?: "fal-ai/veo3.1/image-to-video" | "fal-ai/veo3.1" | "fal-ai/veo3/fast";
     depthModel?: "fal-ai/image-preprocessors/depth-anything/v2" | "fal-ai/imageutils/marigold-depth";
     imageUrl?: string;
+    sourceAssetId?: string;
+    runUpscale?: boolean;
+    runDepth?: boolean;
   };
 }
 

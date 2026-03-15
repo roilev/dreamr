@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle,
@@ -14,10 +14,14 @@ import {
   Globe,
   RefreshCw,
   Eye,
+  ChevronDown,
+  ChevronRight,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useGenerationHistory } from "@/hooks/use-assets";
 import { useViewerStore } from "@/lib/stores/viewer-store";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import type { GenerationEvent } from "@/hooks/use-assets";
 import type { AssetRow } from "@/lib/supabase/types";
 
@@ -76,6 +80,10 @@ const MODE_FOR_TYPE: Record<string, string> = {
   splat_full: "splat",
 };
 
+function clip(text: string) {
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
 function formatDuration(start: string, end?: string): string {
   if (!end) return "—";
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -116,6 +124,7 @@ export function GenerationHistory({
   const { data: events, isLoading } = useGenerationHistory(sceneId);
   const { setMode, setEquirectUrl, setVideoUrl, setDepthUrl } =
     useViewerStore();
+  const { isAdmin } = useIsAdmin();
 
   const groupedByDate = useMemo(() => {
     if (!events) return [];
@@ -176,17 +185,8 @@ export function GenerationHistory({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-primary)]">
-      <div className="px-4 py-3 border-b border-[var(--border-default)]">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          Generation History
-        </h2>
-        <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-          {events.length} generation{events.length !== 1 ? "s" : ""}
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+    <div className="flex flex-col bg-[var(--bg-primary)]">
+      <div className="overflow-y-auto px-4 py-3">
         <AnimatePresence initial={false}>
           {groupedByDate.map((group) => (
             <div key={group.date} className="mb-4">
@@ -204,6 +204,7 @@ export function GenerationHistory({
                     index={idx}
                     onRerun={onRerun}
                     onViewAsset={handleViewAsset}
+                    isAdmin={isAdmin}
                   />
                 ))}
               </div>
@@ -220,15 +221,21 @@ function TimelineEvent({
   index,
   onRerun,
   onViewAsset,
+  isAdmin,
 }: {
   event: GenerationEvent;
   index: number;
   onRerun?: (step: string) => void;
   onViewAsset: (asset: AssetRow) => void;
+  isAdmin: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const statusCfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusCfg.icon;
   const StepIcon = STEP_ICONS[event.step ?? ""] ?? Box;
+
+  const hasPipelineDetails = isAdmin && event.outputMetadata &&
+    Object.keys(event.outputMetadata).some((k) => k.startsWith("step_") || k === "intermediates");
 
   return (
     <motion.div
@@ -237,7 +244,6 @@ function TimelineEvent({
       transition={{ delay: index * 0.03 }}
       className="relative pb-4 last:pb-0"
     >
-      {/* Timeline dot */}
       <div
         className={cn(
           "absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-[var(--bg-primary)]",
@@ -262,7 +268,7 @@ function TimelineEvent({
         </div>
 
         {/* Meta */}
-        <div className="flex items-center gap-3 mt-1.5">
+        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
           <span className="text-[10px] text-[var(--text-muted)]">
             {formatTime(event.createdAt)}
           </span>
@@ -284,6 +290,11 @@ function TimelineEvent({
           >
             {event.status}
           </span>
+          {isAdmin && event.provider && (
+            <span className="text-[10px] text-[var(--text-muted)]">
+              {event.provider}/{event.modelId?.split("/").pop() ?? ""}
+            </span>
+          )}
         </div>
 
         {/* Error */}
@@ -323,6 +334,25 @@ function TimelineEvent({
           </div>
         )}
 
+        {/* Admin: expand toggle for pipeline details */}
+        {hasPipelineDetails && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mt-2 flex items-center gap-1 text-[10px] text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+          >
+            {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            Pipeline details
+          </button>
+        )}
+
+        {/* Admin: expanded pipeline step details */}
+        {expanded && hasPipelineDetails && (
+          <AdminPipelineDetails
+            outputMetadata={event.outputMetadata!}
+            inputMetadata={event.inputMetadata}
+          />
+        )}
+
         {/* Re-run button */}
         {onRerun && event.step && event.status !== "running" && (
           <button
@@ -335,5 +365,258 @@ function TimelineEvent({
         )}
       </div>
     </motion.div>
+  );
+}
+
+interface PipelineStage {
+  label: string;
+  prompt?: string;
+  description?: string;
+  dimensions?: { width?: number; height?: number };
+  inputImages: { label: string; url: string }[];
+  outputImages: { label: string; url: string }[];
+}
+
+function buildStagesFromStepKeys(
+  outputMetadata: Record<string, unknown>,
+  inputMetadata?: Record<string, unknown>,
+): PipelineStage[] {
+  const stages: PipelineStage[] = [];
+  const stepEntries = Object.entries(outputMetadata)
+    .filter(([k]) => k.startsWith("step_"))
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [key, val] of stepEntries) {
+    const step = val as Record<string, unknown>;
+    if (key === "step_4_finalize") continue;
+
+    const label = key
+      .replace("step_", "")
+      .replace(/_/g, " ")
+      .replace(/^\d+\s/, (m) => `Step ${m.trim()}: `);
+
+    const inputImages: { label: string; url: string }[] = [];
+    const outputImages: { label: string; url: string }[] = [];
+
+    if (key === "step_1_generate") {
+      const refUrls = step.reference_urls as string[] | undefined;
+      if (refUrls?.length) {
+        refUrls.forEach((url, i) => inputImages.push({ label: `Reference ${i + 1}`, url }));
+      }
+      if (step.raw_url) outputImages.push({ label: "Generated panorama", url: step.raw_url as string });
+    } else if (key === "step_2_seam") {
+      if (step.crop_url) inputImages.push({ label: "Seam crop", url: step.crop_url as string });
+      if (step.inpainted_url) outputImages.push({ label: "Inpainted", url: step.inpainted_url as string });
+      if (step.fixed_url) outputImages.push({ label: "Seam fixed", url: step.fixed_url as string });
+    } else if (key === "step_3_poles") {
+      const inters = step.intermediates as Record<string, string> | undefined;
+      if (inters) {
+        if (inters.wrapped) inputImages.push({ label: "Wrapped equirect", url: inters.wrapped });
+        if (inters.letterboxed) inputImages.push({ label: "Letterboxed", url: inters.letterboxed });
+        if (inters.captureTop || inters.poleTop)
+          inputImages.push({ label: "Top capture", url: inters.captureTop || inters.poleTop });
+        if (inters.captureBottom || inters.poleBottom)
+          inputImages.push({ label: "Bottom capture", url: inters.captureBottom || inters.poleBottom });
+      }
+      if (step.filled_top_url) outputImages.push({ label: "Filled top", url: step.filled_top_url as string });
+      if (step.filled_bottom_url) outputImages.push({ label: "Filled bottom", url: step.filled_bottom_url as string });
+    }
+
+    stages.push({
+      label,
+      prompt: step.prompt as string | undefined,
+      description: step.description as string | undefined,
+      dimensions: step.dimensions as { width?: number; height?: number } | undefined,
+      inputImages,
+      outputImages,
+    });
+  }
+  return stages;
+}
+
+function buildStagesFromIntermediates(
+  intermediates: Record<string, string>,
+  inputMetadata?: Record<string, unknown>,
+  outputMetadata?: Record<string, unknown>,
+): PipelineStage[] {
+  const stages: PipelineStage[] = [];
+  const userPrompt = inputMetadata?.user_prompt as string | undefined;
+  const workflow = (outputMetadata?.workflow ?? inputMetadata?.workflow) as string | undefined;
+  const promptMode = (outputMetadata?.prompt_mode ?? inputMetadata?.prompt_mode) as string | undefined;
+
+  let fullPrompt: string | undefined;
+  if (userPrompt && workflow && promptMode) {
+    const sysPrompts: Record<string, Record<string, string>> = {
+      equirect: {
+        precise: "Generate a seamless 360-degree equirectangular panoramic image. The image must have a 2:1 aspect ratio with the full 360 horizontal field of view. The left edge and right edge must connect seamlessly when wrapped into a sphere. The top represents the zenith (straight up) and the bottom the nadir (straight down). The scene: ",
+        creative: "Format: 360 equirectangular. Generate an immersive, photorealistic world. Make it feel like we are standing inside this scene as it unfolds around us. Full spherical coverage, seamless wrap at edges. The scene: ",
+      },
+      panorama: {
+        precise: "Generate a 4:1 panoramic strip showing a full 360° horizontal view. The strip should connect seamlessly left-to-right when wrapped into a cylinder. The scene: ",
+        creative: "Format: 4:1 panoramic strip. Generate an immersive, photorealistic world as a 360° panoramic band. Seamless left-right wrap when rolled into a cylinder. The scene: ",
+      },
+    };
+    const sys = sysPrompts[workflow]?.[promptMode];
+    fullPrompt = sys ? `${sys}${userPrompt}` : userPrompt;
+  } else {
+    fullPrompt = userPrompt || undefined;
+  }
+
+  if (intermediates.raw) {
+    stages.push({
+      label: "Step 1: Generate",
+      prompt: fullPrompt,
+      inputImages: [],
+      outputImages: [{ label: "Generated panorama", url: intermediates.raw }],
+    });
+  }
+
+  const seamInputs: { label: string; url: string }[] = [];
+  const seamOutputs: { label: string; url: string }[] = [];
+  if (intermediates.seamCrop) seamInputs.push({ label: "Seam crop", url: intermediates.seamCrop });
+  if (intermediates.seamFixed) seamOutputs.push({ label: "Seam fixed", url: intermediates.seamFixed });
+  if (seamInputs.length || seamOutputs.length) {
+    stages.push({
+      label: "Step 2: Seam fix",
+      prompt: "The photo has a missing seam region running vertically through the center where the left and right edges meet. Seamlessly repair this seam area so the left and right halves blend naturally, continuing the scene smoothly across the repair zone.",
+      inputImages: seamInputs,
+      outputImages: seamOutputs,
+    });
+  }
+
+  const poleInputs: { label: string; url: string }[] = [];
+  const poleOutputs: { label: string; url: string }[] = [];
+  if (intermediates.wrapped) poleInputs.push({ label: "Wrapped equirect", url: intermediates.wrapped });
+  if (intermediates.letterboxed) poleInputs.push({ label: "Letterboxed", url: intermediates.letterboxed });
+  if (intermediates.captureTop || intermediates.poleTop)
+    poleInputs.push({ label: "Top capture", url: (intermediates.captureTop || intermediates.poleTop) });
+  if (intermediates.captureBottom || intermediates.poleBottom)
+    poleInputs.push({ label: "Bottom capture", url: (intermediates.captureBottom || intermediates.poleBottom) });
+  if (poleInputs.length) {
+    stages.push({
+      label: "Step 3: Pole fill",
+      prompt: "Fill the missing region in this wide-angle photo. Complete the missing areas to seamlessly match the surrounding environment's surfaces, textures, lighting, and objects. DO NOT CHANGE THE REST OF THE SCENE.",
+      inputImages: poleInputs,
+      outputImages: poleOutputs,
+    });
+  }
+
+  return stages;
+}
+
+function AdminPipelineDetails({
+  outputMetadata,
+  inputMetadata,
+}: {
+  outputMetadata: Record<string, unknown>;
+  inputMetadata?: Record<string, unknown>;
+}) {
+  const hasStepKeys = Object.keys(outputMetadata).some((k) => k.startsWith("step_"));
+  const intermediates = outputMetadata.intermediates as Record<string, string> | undefined;
+
+  const stages = hasStepKeys
+    ? buildStagesFromStepKeys(outputMetadata, inputMetadata)
+    : intermediates
+      ? buildStagesFromIntermediates(intermediates, inputMetadata, outputMetadata)
+      : [];
+
+  return (
+    <div className="mt-2 space-y-1.5 text-[10px]">
+      {stages.map((stage, i) => (
+        <StageCollapsible key={i} stage={stage} defaultOpen={i === 0} />
+      ))}
+
+      <details className="rounded-lg bg-black/20 px-2.5 py-2">
+        <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-[9px] font-medium">
+          Raw metadata
+        </summary>
+        <pre className="text-[9px] text-[var(--text-muted)] bg-black/30 rounded px-2 py-1 mt-1 overflow-x-auto whitespace-pre-wrap">
+          {JSON.stringify({ input: inputMetadata, output: outputMetadata }, null, 2)}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+function StageCollapsible({ stage, defaultOpen }: { stage: PipelineStage; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+
+  return (
+    <div className="rounded-lg bg-black/20 overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-[9px] font-medium text-[var(--text-primary)] hover:bg-white/[0.03] transition-colors"
+      >
+        {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+        <span className="flex-1 text-left capitalize">{stage.label}</span>
+      </button>
+      {open && (
+        <div className="px-2.5 pb-2.5 space-y-2.5">
+          {/* ── Input ── */}
+          <div>
+            <p className="text-[8px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Input</p>
+            {stage.inputImages.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {stage.inputImages.map((img) => (
+                  <a key={img.label} href={img.url} target="_blank" rel="noopener noreferrer" className="block">
+                    <img src={img.url} alt={img.label} className="h-16 rounded border border-white/10 object-cover" />
+                    <span className="text-[7px] text-[var(--text-muted)] block mt-0.5 truncate max-w-[80px]">{img.label}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[9px] text-[var(--text-muted)] italic">Text prompt only</span>
+            )}
+          </div>
+
+          {/* ── Prompt ── */}
+          <div>
+            <p className="text-[8px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Prompt</p>
+            {stage.prompt ? (
+              <>
+                <p className="text-[var(--text-secondary)] bg-black/30 rounded px-2 py-1.5 break-words text-[9px] leading-relaxed">
+                  {stage.prompt}
+                </p>
+                <button
+                  onClick={() => clip(stage.prompt!)}
+                  className="flex items-center gap-1 mt-1 text-[var(--accent-primary)] hover:underline text-[8px]"
+                >
+                  <Copy size={7} /> Copy
+                </button>
+              </>
+            ) : (
+              <span className="text-[9px] text-[var(--text-muted)] italic">Not stored (legacy job)</span>
+            )}
+            {stage.description && (
+              <p className="text-[var(--text-muted)] bg-black/20 rounded px-2 py-1 mt-1.5 break-words text-[8px] italic">
+                Model: {stage.description}
+              </p>
+            )}
+          </div>
+
+          {/* ── Output ── */}
+          <div>
+            <p className="text-[8px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Output</p>
+            {stage.outputImages.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {stage.outputImages.map((img) => (
+                  <a key={img.label} href={img.url} target="_blank" rel="noopener noreferrer" className="block">
+                    <img src={img.url} alt={img.label} className="h-16 rounded border border-white/10 object-cover" />
+                    <span className="text-[7px] text-[var(--text-muted)] block mt-0.5 truncate max-w-[80px]">{img.label}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[9px] text-[var(--text-muted)] italic">Not stored (legacy job)</span>
+            )}
+            {stage.dimensions && (
+              <span className="text-[8px] text-[var(--text-muted)] block mt-1">
+                {stage.dimensions.width}×{stage.dimensions.height}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
